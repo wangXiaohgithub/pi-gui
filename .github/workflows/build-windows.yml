@@ -59,6 +59,7 @@ jobs:
       - name: Upload Windows release
         uses: softprops/action-gh-release@v3
         with:
+          name: pi-gui 中文版 ${{ github.ref_name }}
           files: |
             apps/desktop/release/*-setup.exe
             apps/desktop/release/*-portable.exe

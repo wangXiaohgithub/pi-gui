@@ -1,5 +1,11 @@
 # pi-gui
 
+## Chinese Edition
+
+This repository includes an unofficial Simplified Chinese edition based on
+[upstream pi-gui](https://github.com/minghinmatthewlam/pi-gui). See the
+[Chinese README](./README.zh-CN.md) for Windows installation and release details.
+
 A Codex-style desktop app for the [`pi`](https://github.com/earendil-works/pi) coding agent.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
