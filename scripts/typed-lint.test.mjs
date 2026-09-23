@@ -5,6 +5,7 @@ import {
   copyFileSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   realpathSync,
   symlinkSync,
   writeFileSync,
@@ -115,6 +116,7 @@ const requiredTypedRules = [
 
 async function workspaceLintFailures(workspaceRoot) {
   const pnpmPath = process.env.npm_execpath ?? path.join(root, "node_modules/pnpm/bin/pnpm.cjs");
+  const rootName = JSON.parse(readFileSync(path.join(workspaceRoot, "package.json"), "utf8")).name;
   const projects = JSON.parse(
     execFileSync(
       process.execPath,
@@ -124,7 +126,10 @@ async function workspaceLintFailures(workspaceRoot) {
         encoding: "utf8",
       },
     ),
-  ).filter((project) => realpathSync(project.path) !== realpathSync(workspaceRoot));
+  ).filter(
+    (project) =>
+      realpathSync(project.path) !== realpathSync(workspaceRoot) && project.name !== rootName,
+  );
   assert.ok(projects.length, "No workspaces discovered; cannot prove typed lint coverage.");
   const eslint = new ESLint({ cwd: workspaceRoot });
   const failures = [];
@@ -184,7 +189,6 @@ test("a new workspace cannot silently receive only syntax lint", async () => {
     path.join(workspace, "package.json"),
     path.join(registeredWorkspace, "package.json"),
   );
-  const { readFileSync } = await import("node:fs");
   const configPath = path.join(registered, "eslint.config.mjs");
   writeFileSync(
     configPath,

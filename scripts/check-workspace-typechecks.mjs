@@ -16,7 +16,10 @@ export function checkWorkspaceTypechecks(root, pnpmPath) {
       },
     ),
   );
-  const workspaces = projects.filter((project) => realpathSync(project.path) !== root);
+  const rootName = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).name;
+  const workspaces = projects.filter(
+    (project) => realpathSync(project.path) !== root && project.name !== rootName,
+  );
   if (!workspaces.length) throw new Error("No workspaces discovered; refusing to skip typechecks.");
   const failures = [];
   for (const workspace of workspaces) {

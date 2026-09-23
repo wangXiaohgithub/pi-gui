@@ -6,6 +6,8 @@ on:
       - zh-i18n
     paths:
       - .github/workflows/recover-cn1.yml
+      - scripts/check-workspace-typechecks.mjs
+      - scripts/typed-lint.test.mjs
 
 permissions:
   contents: write
