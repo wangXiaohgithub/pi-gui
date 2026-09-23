@@ -1,48 +1,26 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type MouseEvent as ReactMouseEvent,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Terminal } from "@xterm/xterm";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import type { WorkspaceRecord } from "../../../contracts/desktop-state";
-import { CloseIcon, MaximizeIcon, MinimizeIcon, PlusIcon, RefreshIcon } from "../../ui/icons";
+import { CloseIcon, PlusIcon, RefreshIcon } from "../../ui/icons";
 import type {
   TerminalPanelSnapshot,
   TerminalSessionSnapshot,
   TerminalSize,
 } from "../../../contracts/ipc";
 import { appendTerminalReplay } from "../../../contracts/terminal-model";
-import { useTranslation } from "react-i18next";
-
-const MIN_TERMINAL_HEIGHT = 220;
-const DEFAULT_TERMINAL_HEIGHT = 340;
 
 interface TerminalPanelProps {
   readonly workspace: WorkspaceRecord;
   readonly sessionId: string;
-  readonly height: number;
-  readonly isTakeover: boolean;
-  readonly onHeightChange: (height: number) => void;
-  readonly onToggleTakeover: () => void;
   readonly onHide: () => void;
 }
 
-export function TerminalPanel({
-  workspace,
-  sessionId,
-  height,
-  isTakeover,
-  onHeightChange,
-  onToggleTakeover,
-  onHide,
-}: TerminalPanelProps) {
+export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelProps) {
   const { t } = useTranslation();
   const api = window.piApp;
   const panelRef = useRef<HTMLElement | null>(null);
@@ -50,10 +28,17 @@ export function TerminalPanel({
   const fitAddonRef = useRef<FitAddon | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const activeTerminalIdRef = useRef("");
+  const mountedRef = useRef(false);
   const lastSizeRef = useRef<TerminalSize>({ cols: 80, rows: 24 });
-  const resizeCleanupRef = useRef<(() => void) | null>(null);
   const [panel, setPanel] = useState<TerminalPanelSnapshot | null>(null);
   const [error, setError] = useState<string>("");
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const activeSession = useMemo(
     () => panel?.sessions.find((session) => session.id === panel.activeSessionId),
@@ -110,7 +95,9 @@ export function TerminalPanel({
         setPanel(nextPanel);
       } else {
         setPanel(null);
-        onHide();
+        // Closing a shell may finish after its task or tool view was left.
+        // Never let that old view close the newly selected task's Terminal tab.
+        if (mountedRef.current) onHide();
       }
     },
     [api, onHide],
@@ -305,46 +292,13 @@ export function TerminalPanel({
     };
   }, [activeSession?.id, api, createTerminal, fitAndResize]);
 
-  const startResize = (event: ReactMouseEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    resizeCleanupRef.current?.();
-    const startY = event.clientY;
-    const startHeight =
-      containerRef.current?.closest<HTMLElement>(".terminal-panel")?.offsetHeight ?? height;
-    const maxHeight = Math.max(MIN_TERMINAL_HEIGHT, window.innerHeight - 140);
-
-    const handleMove = (moveEvent: MouseEvent) => {
-      const nextHeight = Math.min(
-        maxHeight,
-        Math.max(MIN_TERMINAL_HEIGHT, startHeight + startY - moveEvent.clientY),
-      );
-      onHeightChange(nextHeight);
-    };
-    const handleUp = () => {
-      window.removeEventListener("mousemove", handleMove);
-      window.removeEventListener("mouseup", handleUp);
-      resizeCleanupRef.current = null;
-    };
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("mouseup", handleUp);
-    resizeCleanupRef.current = handleUp;
-  };
-
-  useEffect(() => {
-    return () => {
-      resizeCleanupRef.current?.();
-    };
-  }, []);
-
   return (
     <section
       ref={panelRef}
-      className={`terminal-panel${isTakeover ? " terminal-panel--takeover" : ""}`}
+      className="terminal-panel"
       data-pi-terminal="true"
       data-testid="integrated-terminal"
-      style={isTakeover ? undefined : { height: `${height || DEFAULT_TERMINAL_HEIGHT}px` }}
     >
-      <div className="terminal-panel__resize-handle" onMouseDown={startResize} />
       <div className="terminal-panel__toolbar">
         <div
           className="terminal-panel__tabs"
@@ -376,7 +330,7 @@ export function TerminalPanel({
               <button
                 type="button"
                 className="terminal-panel__tab-close"
-                aria-label={`Close ${session.title}`}
+                aria-label={t("workbench.closeTerminal", { terminal: session.title })}
                 onClick={(event) => {
                   event.stopPropagation();
                   void closeTerminal(session.id).catch((error: unknown) => {
@@ -415,26 +369,6 @@ export function TerminalPanel({
             }
           >
             <RefreshIcon />
-          </button>
-          <button
-            type="button"
-            className="icon-button terminal-panel__action"
-            title={isTakeover ? t("workbench.restoreTerminal") : t("workbench.maximizeTerminal")}
-            aria-label={
-              isTakeover ? t("workbench.restoreTerminal") : t("workbench.maximizeTerminal")
-            }
-            onClick={onToggleTakeover}
-          >
-            {isTakeover ? <MinimizeIcon /> : <MaximizeIcon />}
-          </button>
-          <button
-            type="button"
-            className="icon-button terminal-panel__action"
-            title={t("workbench.hideTerminal")}
-            aria-label={t("workbench.hideTerminal")}
-            onClick={onHide}
-          >
-            <CloseIcon />
           </button>
         </div>
       </div>

@@ -75,7 +75,7 @@ export function SkillsView({
               onClick={() =>
                 onTrySkill({
                   name: "new-skill",
-                  description: "Create a new skill for this workspace",
+                  description: t("skills.newDescription"),
                   filePath: "",
                   baseDir: workspace.path,
                   source: "project",

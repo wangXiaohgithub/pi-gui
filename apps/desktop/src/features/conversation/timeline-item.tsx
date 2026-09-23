@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { SessionTranscriptMessage } from "@pi-gui/session-driver";
 import type {
   DisplayTimelineItem,
@@ -8,6 +10,7 @@ import type {
 } from "../../../contracts/timeline-types";
 import type { ScheduledTaskOrigin } from "../../../contracts/scheduled-tasks";
 import { MessageMarkdown } from "./message-markdown";
+import type { WorkspaceFileLine } from "./workspace-file-line";
 import { InlineDiff, extractDiffFromOutput } from "../../ui/diff-inline";
 import {
   ChevronRightIcon,
@@ -19,7 +22,6 @@ import {
   TerminalIcon,
 } from "../../ui/icons";
 import { extensionToLanguage } from "../../ui/syntax-highlight";
-import { useTranslation } from "react-i18next";
 
 export function TimelineItem({
   item,
@@ -28,7 +30,10 @@ export function TimelineItem({
   onViewFileInDiff,
   sourceMessageIndex,
   onForkFromMessage,
+  onReviewTurn,
   scheduledOrigin,
+  workspacePath,
+  onOpenWorkspaceFileLine,
 }: {
   readonly item: DisplayTimelineItem;
   readonly expandedToolCallIds?: ReadonlySet<string>;
@@ -36,7 +41,10 @@ export function TimelineItem({
   readonly onViewFileInDiff?: (path: string) => void;
   readonly sourceMessageIndex?: number;
   readonly onForkFromMessage?: (messageIndex: number, preview?: string) => void;
+  readonly onReviewTurn?: (messageId: string) => Promise<void>;
   readonly scheduledOrigin?: ScheduledTaskOrigin;
+  readonly workspacePath?: string;
+  readonly onOpenWorkspaceFileLine?: (target: WorkspaceFileLine) => void;
 }) {
   switch (item.kind) {
     case "turn-marker":
@@ -47,7 +55,10 @@ export function TimelineItem({
           item={item}
           sourceMessageIndex={sourceMessageIndex}
           onForkFromMessage={onForkFromMessage}
+          onReviewTurn={onReviewTurn}
+          onOpenWorkspaceFileLine={onOpenWorkspaceFileLine}
           scheduledOrigin={scheduledOrigin}
+          workspacePath={workspacePath}
         />
       );
     case "activity":
@@ -72,21 +83,29 @@ function TimelineMessage({
   item,
   sourceMessageIndex,
   onForkFromMessage,
+  onReviewTurn,
   scheduledOrigin,
+  workspacePath,
+  onOpenWorkspaceFileLine,
 }: {
   readonly item: SessionTranscriptMessage;
   readonly sourceMessageIndex?: number;
   readonly onForkFromMessage?: (messageIndex: number, preview?: string) => void;
+  readonly onReviewTurn?: (messageId: string) => Promise<void>;
   readonly scheduledOrigin?: ScheduledTaskOrigin;
+  readonly workspacePath?: string;
+  readonly onOpenWorkspaceFileLine?: (target: WorkspaceFileLine) => void;
 }) {
   const { t } = useTranslation();
+  const [reviewError, setReviewError] = useState("");
+  const [reviewPending, setReviewPending] = useState(false);
   if (item.role === "user") {
     return (
       <article className="timeline-item timeline-item--user">
         <div className="timeline-item__user-stack">
           {scheduledOrigin ? (
             <div className="timeline-item__scheduled-origin" data-testid="sent-by-scheduled-task">
-              Sent by scheduled task
+              {t("scheduled.sentByTask")}
             </div>
           ) : null}
           <div className="timeline-item__bubble">
@@ -95,7 +114,7 @@ function TimelineMessage({
                 {item.attachments.map((attachment, index) =>
                   attachment.kind === "image" ? (
                     <img
-                      alt={attachment.name ?? `Attachment ${index + 1}`}
+                      alt={attachment.name ?? t("composer.attachment", { index: index + 1 })}
                       className="timeline-item__attachment timeline-item__attachment--image"
                       key={`${item.id}:${index}`}
                       src={`data:${attachment.mimeType};base64,${attachment.data}`}
@@ -138,21 +157,62 @@ function TimelineMessage({
   const canFork = onForkFromMessage != null && sourceMessageIndex !== undefined;
   return (
     <article className="timeline-item timeline-item--assistant">
-      <MessageMarkdown text={item.text} />
-      {canFork ? (
+      <MessageMarkdown
+        onOpenWorkspaceFileLine={onOpenWorkspaceFileLine}
+        text={item.text}
+        workspacePath={workspacePath}
+      />
+      {canFork || onReviewTurn ? (
         <div className="timeline-item__actions">
-          <button
-            type="button"
-            className="timeline-item__action"
-            title={t("thread.fork")}
-            aria-label={t("thread.fork")}
-            data-testid="fork-from-message"
-            onClick={() => onForkFromMessage(sourceMessageIndex, item.text)}
-          >
-            <ForkIcon />
-            <span className="timeline-item__action-label">{t("thread.forkAction")}</span>
-          </button>
+          {canFork ? (
+            <button
+              type="button"
+              className="timeline-item__action"
+              title={t("thread.fork")}
+              aria-label={t("thread.fork")}
+              data-testid="fork-from-message"
+              onClick={() => onForkFromMessage(sourceMessageIndex, item.text)}
+            >
+              <ForkIcon />
+              <span className="timeline-item__action-label">{t("thread.forkAction")}</span>
+            </button>
+          ) : null}
+          {onReviewTurn ? (
+            <button
+              type="button"
+              className="timeline-item__action"
+              aria-label={t("thread.reviewChanges")}
+              title={
+                item.sourceMessageId
+                  ? t("thread.reviewCaptured")
+                  : t("thread.reviewUnavailableUntilSaved")
+              }
+              disabled={reviewPending || !item.sourceMessageId}
+              onClick={() => {
+                if (!item.sourceMessageId) return;
+                setReviewPending(true);
+                setReviewError("");
+                onReviewTurn(item.sourceMessageId)
+                  .catch((error: unknown) => {
+                    setReviewError(
+                      error instanceof Error ? error.message : t("thread.reviewFailed"),
+                    );
+                  })
+                  .finally(() => setReviewPending(false));
+              }}
+            >
+              <DiffIcon />
+              <span className="timeline-item__action-label">
+                {reviewPending ? t("thread.openingReview") : t("thread.review")}
+              </span>
+            </button>
+          ) : null}
         </div>
+      ) : null}
+      {reviewError ? (
+        <p className="timeline-item__review-error" role="status">
+          {reviewError}
+        </p>
       ) : null}
     </article>
   );
@@ -227,12 +287,12 @@ function TimelineToolCallItem({
           ) : null}
           <span className="timeline-tool__meta-inline">
             <span className="timeline-tool__status-pip" aria-hidden="true" />
-            {`${item.toolName} \u00b7 ${statusLabel(item.status)}`}
+            {`${item.toolName} \u00b7 ${t(`thread.toolStatus.${item.status}`)}`}
           </span>
         </button>
         {filePath && onViewFileInDiff ? (
           <button
-            aria-label={`View ${filePath} in changes`}
+            aria-label={t("thread.viewInChanges", { path: filePath })}
             className="icon-button timeline-tool__view-in-diff"
             data-testid="timeline-tool-view-in-diff"
             type="button"
@@ -366,16 +426,13 @@ function formatToolContent(input: unknown, output: unknown): string {
   return parts.join("\n\n");
 }
 
-function statusLabel(status: "running" | "success" | "error") {
-  if (status === "running") return "running";
-  if (status === "success") return "done";
-  return "failed";
-}
-
 function TimelineTurnMarkerItem({ item }: { readonly item: TimelineTurnMarker }) {
+  const { t } = useTranslation();
   return (
     <div className="timeline-turn-marker" data-testid="timeline-turn-marker">
-      <span className="timeline-turn-marker__label">{`Worked for ${formatWorkedDuration(item.durationMs)}`}</span>
+      <span className="timeline-turn-marker__label">
+        {t("thread.workedFor", { duration: formatWorkedDuration(item.durationMs) })}
+      </span>
     </div>
   );
 }

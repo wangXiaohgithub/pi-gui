@@ -6,17 +6,12 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
+import { useTranslation } from "react-i18next";
 import type { WorkspaceRecord, WorktreeRecord } from "../../../contracts/desktop-state";
 import type { PiDesktopApi } from "../../../contracts/ipc";
 import { FileEditorPane } from "./file-editor-pane";
 import { FileExplorer } from "./file-explorer";
-import {
-  activateFile,
-  closeFile,
-  openFile,
-  pruneFiles,
-  type FileWorkbenchTabs,
-} from "./file-workbench-state";
+import { activateFile, closeFile, openFile, type FileWorkbenchTabs } from "./file-workbench-state";
 
 interface FileWorkbenchProps {
   readonly api: PiDesktopApi;
@@ -35,11 +30,10 @@ export function FileWorkbench({
   tabs,
   onTabsChange,
 }: FileWorkbenchProps) {
+  const { t } = useTranslation();
   const [files, setFiles] = useState<readonly string[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
-  const onTabsChangeRef = useRef(onTabsChange);
-  onTabsChangeRef.current = onTabsChange;
   const requestIdRef = useRef(0);
 
   const refresh = useCallback(
@@ -54,14 +48,13 @@ export function FileWorkbench({
             return;
           }
           setFiles(listed);
-          onTabsChangeRef.current((current) => pruneFiles(current, listed));
         })
         .catch((error: unknown) => {
           if (requestIdRef.current !== requestId) {
             return;
           }
           console.error("[renderer] listWorkspaceFiles failed", error);
-          setListError("Couldn't load files");
+          setListError(t("errors.loadFiles"));
         })
         .finally(() => {
           if (requestIdRef.current !== requestId) {
@@ -70,7 +63,7 @@ export function FileWorkbench({
           setLoading(false);
         });
     },
-    [api, workspace.id],
+    [api, t, workspace.id],
   );
 
   const prevStatusRef = useRef(sessionStatus);

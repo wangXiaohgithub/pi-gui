@@ -1,3 +1,11 @@
+import type {
+  ExtensionViewOpenFile,
+  DesktopExtensionViewInfo,
+  OpenExtensionViewInput,
+  ExtensionViewConnection,
+  ExtensionViewMessage,
+  ExtensionViewCatalogChange,
+} from "./extension-views";
 import type { RuntimeSettingsSnapshot } from "@pi-gui/session-driver/runtime-types";
 import type {
   NavigateSessionTreeOptions,
@@ -5,6 +13,20 @@ import type {
   SessionTreeSnapshot,
 } from "@pi-gui/session-driver/types";
 import type { ClipboardImageRead } from "./composer-attachments";
+import type { SessionRef } from "@pi-gui/session-driver/types";
+import type { SaveTaskWorkbenchTemplateInput, TaskWorkbenchTemplate } from "./workbench";
+import type {
+  ResolveTurnReviewInput,
+  ResolveTurnReviewResult,
+  GetReviewInput,
+  ReviewResult,
+  ReviewFileInput,
+  ReviewFileResult,
+  SetReviewFileReviewedInput,
+  SetReviewFileReviewedResult,
+  ChangeReviewFileStageInput,
+  ChangeReviewFileStageResult,
+} from "./review";
 import type {
   AppView,
   ComposerAttachment,
@@ -52,8 +74,17 @@ export type CustomProviderProbeResult =
   | { readonly ok: false; readonly error: string };
 
 export const desktopIpc = {
+  extensionViewOpenFile: "pi-gui:extension-view-open-file",
+  listExtensionViews: "pi-gui:list-extension-views",
+  openExtensionView: "pi-gui:open-extension-view",
+  sendExtensionViewMessage: "pi-gui:send-extension-view-message",
+  closeExtensionView: "pi-gui:close-extension-view",
+  extensionViewMessage: "pi-gui:extension-view-message",
+  extensionViewCatalogChanged: "pi-gui:extension-view-catalog-changed",
   stateRequest: "pi-gui:state-request",
   stateChanged: "pi-gui:state-changed",
+  getTaskWorkbenchTemplate: "pi-gui:get-task-workbench-template",
+  saveTaskWorkbenchTemplate: "pi-gui:save-task-workbench-template",
   selectedTranscriptRequest: "pi-gui:selected-transcript-request",
   selectedTranscriptChanged: "pi-gui:selected-transcript-changed",
   appCommand: "pi-gui:app-command",
@@ -121,6 +152,7 @@ export const desktopIpc = {
   terminalCloseSession: "pi-gui:terminal-close-session",
   terminalSetTitle: "pi-gui:terminal-set-title",
   terminalSetFocused: "pi-gui:terminal-set-focused",
+  sidePanelSetFocused: "pi-gui:side-panel-set-focused",
   terminalData: "pi-gui:terminal-data",
   terminalExit: "pi-gui:terminal-exit",
   terminalError: "pi-gui:terminal-error",
@@ -136,6 +168,7 @@ export const desktopIpc = {
   cancelQueuedComposerEdit: "pi-gui:cancel-queued-composer-edit",
   removeQueuedComposerMessage: "pi-gui:remove-queued-composer-message",
   steerQueuedComposerMessage: "pi-gui:steer-queued-composer-message",
+  persistComposerDraft: "pi-gui:persist-composer-draft",
   updateComposerDraft: "pi-gui:update-composer-draft",
   submitComposer: "pi-gui:submit-composer",
   getSessionTree: "pi-gui:get-session-tree",
@@ -147,6 +180,11 @@ export const desktopIpc = {
   getChangedFiles: "pi-gui:get-changed-files",
   getFileDiff: "pi-gui:get-file-diff",
   stageFile: "pi-gui:stage-file",
+  resolveTurnReview: "pi-gui:resolve-turn-review",
+  getReview: "pi-gui:get-review",
+  getReviewFile: "pi-gui:get-review-file",
+  setReviewFileReviewed: "pi-gui:set-review-file-reviewed",
+  changeReviewFileStage: "pi-gui:change-review-file-stage",
   getThemeMode: "pi-gui:get-theme-mode",
   getResolvedTheme: "pi-gui:get-resolved-theme",
   setThemeMode: "pi-gui:set-theme-mode",
@@ -162,6 +200,9 @@ export const desktopCommands = {
   openSettings: "open-settings",
   openNewThread: "open-new-thread",
   toggleTerminal: "toggle-terminal",
+  toggleSidePanel: "toggle-side-panel",
+  toggleChanges: "toggle-changes",
+  closeFocusedSurface: "close-focused-surface",
   toggleSidebar: "toggle-sidebar",
   selectRecentThread1: "select-recent-thread-1",
   selectRecentThread2: "select-recent-thread-2",
@@ -186,8 +227,14 @@ const RECENT_THREAD_COMMANDS = [
   desktopCommands.selectRecentThread9,
 ] as const;
 
+export const THREAD_SHORTCUT_SLOT_COUNT = RECENT_THREAD_COMMANDS.length;
+
 export function getDesktopShortcutLabel(platform: NodeJS.Platform, key: string): string {
   return `${platform === "darwin" ? "⌘" : "Ctrl+"}${key.toUpperCase()}`;
+}
+
+export function getSidePanelToggleShortcutLabel(platform: NodeJS.Platform): string {
+  return platform === "darwin" ? "⌘⌥B" : "Ctrl+Alt+B";
 }
 
 export type PiDesktopStateListener = (state: DesktopAppState) => void;
@@ -283,10 +330,100 @@ export interface TerminalErrorEvent {
 
 export interface DesktopShortcutInput {
   readonly modifier: boolean;
+  readonly alt?: boolean;
   readonly shift: boolean;
   readonly key: string;
   readonly code?: string;
 }
+
+/** Command on macOS, Control on Windows and Linux. */
+export function platformShortcutModifier(
+  platform: NodeJS.Platform,
+  input: { readonly meta: boolean; readonly control: boolean },
+): boolean {
+  return platform === "darwin" ? input.meta : input.control;
+}
+
+const MAX_QUEUED_DESKTOP_COMMANDS = 16;
+
+/**
+ * Delivers main-process shortcuts to the renderer.
+ * A chord can arrive before React subscribes, or in the gap while a listener
+ * is swapped. Those commands are kept until the next subscriber.
+ */
+export function createDesktopCommandSubscription() {
+  let listener: ((command: PiDesktopCommand) => void) | null = null;
+  const queued: PiDesktopCommand[] = [];
+  return {
+    subscribe(next: (command: PiDesktopCommand) => void): () => void {
+      listener = next;
+      const pending = queued.splice(0, queued.length);
+      for (const command of pending) next(command);
+      return () => {
+        if (listener === next) listener = null;
+      };
+    },
+    deliver(command: PiDesktopCommand): void {
+      if (listener) {
+        listener(command);
+        return;
+      }
+      queued.push(command);
+      if (queued.length > MAX_QUEUED_DESKTOP_COMMANDS) queued.shift();
+    },
+  };
+}
+
+/** Collapses a repeated keydown from one physical chord so a toggle stays open. */
+export const SEARCH_CHORD_TOGGLE_MS = 200;
+export const CHANGES_TOGGLE_DEDUPE_MS = 8;
+
+export function createChordToggleGate(windowMs = SEARCH_CHORD_TOGGLE_MS) {
+  let last = Number.NEGATIVE_INFINITY;
+  return (now: number): boolean => {
+    if (now - last < windowMs) return false;
+    last = now;
+    return true;
+  };
+}
+
+export interface EarlyModifierChord {
+  readonly key: string;
+  readonly code: string;
+}
+
+function isBufferedModifierChord(key: string, code?: string): boolean {
+  const lower = key.toLowerCase();
+  if (lower === "f" || code === "KeyF") return true;
+  if (lower === "," || code === "Comma") return true;
+  if (lower === "d" || code === "KeyD") return true;
+  return /^[1-9]$/.test(key) || /^Digit[1-9]$/.test(code ?? "");
+}
+
+/**
+ * Keeps Command/Ctrl chords that arrive before the React shortcut listener
+ * exists. Search, settings, Changes, and thread digits are replayed.
+ */
+export function createEarlyModifierChordBuffer() {
+  const pending: EarlyModifierChord[] = [];
+  let ready = false;
+  return {
+    note(
+      input: EarlyModifierChord & { readonly modifier: boolean; readonly shift: boolean },
+    ): void {
+      if (ready || !input.modifier || input.shift) return;
+      if (!isBufferedModifierChord(input.key, input.code)) return;
+      pending.push({ key: input.key, code: input.code });
+      if (pending.length > 8) pending.shift();
+    },
+    arm(): readonly EarlyModifierChord[] {
+      ready = true;
+      return pending.splice(0, pending.length);
+    },
+  };
+}
+
+export const earlyModifierChords = createEarlyModifierChordBuffer();
 
 export function getDesktopCommandFromShortcut(
   input: DesktopShortcutInput,
@@ -299,7 +436,15 @@ export function getDesktopCommandFromShortcut(
   const isComma = input.key === "," || input.code === "Comma";
   const isB = lowerKey === "b" || input.code === "KeyB";
   const isJ = lowerKey === "j" || input.code === "KeyJ";
+  const isD = lowerKey === "d" || input.code === "KeyD";
   const isShiftO = input.shift && (lowerKey === "o" || input.code === "KeyO");
+
+  if (input.alt) {
+    if (!input.shift && isB) {
+      return desktopCommands.toggleSidePanel;
+    }
+    return undefined;
+  }
 
   if (!input.shift && isComma) {
     return desktopCommands.openSettings;
@@ -307,6 +452,10 @@ export function getDesktopCommandFromShortcut(
 
   if (!input.shift && isJ) {
     return desktopCommands.toggleTerminal;
+  }
+
+  if (!input.shift && isD) {
+    return desktopCommands.toggleChanges;
   }
 
   if (!input.shift && isB) {
@@ -329,11 +478,33 @@ export function getDesktopCommandFromShortcut(
   return undefined;
 }
 
+export function isCloseFocusedSurfaceShortcut(input: {
+  readonly meta: boolean;
+  readonly control: boolean;
+  readonly alt: boolean;
+  readonly shift: boolean;
+  readonly key: string;
+  readonly code?: string;
+  readonly platform: NodeJS.Platform;
+}): boolean {
+  if (input.alt || input.shift) {
+    return false;
+  }
+  const platformModifier = input.platform === "darwin" ? input.meta : input.control;
+  const otherModifier = input.platform === "darwin" ? input.control : input.meta;
+  if (!platformModifier || otherModifier) {
+    return false;
+  }
+  return input.key.toLowerCase() === "w" || input.code === "KeyW";
+}
+
 export interface PiDesktopApi {
   platform: NodeJS.Platform;
   versions: NodeJS.ProcessVersions;
   ping(): Promise<string>;
   getState(): Promise<DesktopAppState>;
+  getTaskWorkbenchTemplate(target: SessionRef): Promise<TaskWorkbenchTemplate | null>;
+  saveTaskWorkbenchTemplate(input: SaveTaskWorkbenchTemplateInput): Promise<void>;
   onStateChanged(listener: PiDesktopStateListener): () => void;
   getSelectedTranscript(): Promise<SelectedTranscriptRecord | null>;
   onSelectedTranscriptChanged(listener: PiDesktopSelectedTranscriptListener): () => void;
@@ -456,6 +627,7 @@ export interface PiDesktopApi {
   closeTerminalSession(terminalId: string): Promise<TerminalPanelSnapshot | null>;
   setTerminalTitle(terminalId: string, title: string): Promise<void>;
   setTerminalFocused(focused: boolean): Promise<void>;
+  setSidePanelFocused(focused: boolean): Promise<void>;
   onTerminalData(listener: (event: TerminalDataEvent) => void): () => void;
   onTerminalExit(listener: (event: TerminalExitEvent) => void): () => void;
   onTerminalError(listener: (event: TerminalErrorEvent) => void): () => void;
@@ -473,6 +645,10 @@ export interface PiDesktopApi {
   cancelQueuedComposerEdit(): Promise<DesktopAppState>;
   removeQueuedComposerMessage(messageId: string): Promise<DesktopAppState>;
   steerQueuedComposerMessage(messageId: string): Promise<DesktopAppState>;
+  persistComposerDraft(input: {
+    readonly target: SessionRef;
+    readonly draft: string;
+  }): Promise<void>;
   updateComposerDraft(composerDraft: string): Promise<DesktopAppState>;
   submitComposer(
     text: string,
@@ -493,6 +669,18 @@ export interface PiDesktopApi {
   getChangedFiles(workspaceId: string): Promise<ChangedFilesResult>;
   getFileDiff(workspaceId: string, filePath: string): Promise<string>;
   stageFile(workspaceId: string, filePath: string, stagingSourcePath?: string): Promise<void>;
+  onExtensionViewOpenFile(listener: (event: ExtensionViewOpenFile) => void): () => void;
+  listExtensionViews(target: SessionRef): Promise<readonly DesktopExtensionViewInfo[]>;
+  openExtensionView(input: OpenExtensionViewInput): Promise<ExtensionViewConnection>;
+  sendExtensionViewMessage(input: ExtensionViewMessage): Promise<void>;
+  closeExtensionView(connectionId: string): Promise<void>;
+  onExtensionViewMessage(listener: (event: ExtensionViewMessage) => void): () => void;
+  onExtensionViewCatalogChanged(listener: (event: ExtensionViewCatalogChange) => void): () => void;
+  resolveTurnReview(input: ResolveTurnReviewInput): Promise<ResolveTurnReviewResult>;
+  getReview(input: GetReviewInput): Promise<ReviewResult>;
+  getReviewFile(input: ReviewFileInput): Promise<ReviewFileResult>;
+  setReviewFileReviewed(input: SetReviewFileReviewedInput): Promise<SetReviewFileReviewedResult>;
+  changeReviewFileStage(input: ChangeReviewFileStageInput): Promise<ChangeReviewFileStageResult>;
   toggleWindowMaximize(): Promise<void>;
   openExternal(url: string): Promise<void>;
   getThemeMode(): Promise<"system" | "light" | "dark">;

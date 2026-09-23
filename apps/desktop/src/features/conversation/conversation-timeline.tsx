@@ -7,14 +7,15 @@ import {
   useState,
   type RefObject,
 } from "react";
+import { useTranslation } from "react-i18next";
 import type { TranscriptMessage } from "../../../contracts/desktop-state";
 import type { DisplayTimelineItem } from "../../../contracts/timeline-types";
 import type { ScheduledTaskOrigin } from "../../../contracts/scheduled-tasks";
 import type { TimelineViewport } from "./hooks/use-timeline-viewport";
 import { ThreadSearchBar } from "./thread-search";
 import { TimelineItem } from "./timeline-item";
+import type { WorkspaceFileLine } from "./workspace-file-line";
 import { SparkIcon } from "../../ui/icons";
-import { useTranslation } from "react-i18next";
 
 interface ThreadSearchModel {
   readonly isOpen: boolean;
@@ -34,9 +35,11 @@ interface ConversationTimelineProps {
   readonly viewport: TimelineViewport;
   readonly threadSearch: ThreadSearchModel;
   readonly onViewFileInDiff?: (path: string) => void;
+  readonly onReviewTurn?: (messageId: string) => Promise<void>;
   readonly onForkFromMessage?: (messageIndex: number, preview?: string) => void;
-  readonly promptRailVisible?: boolean;
+  readonly onOpenWorkspaceFileLine?: (target: WorkspaceFileLine) => void;
   readonly scheduledOrigins?: ReadonlyMap<string, ScheduledTaskOrigin>;
+  readonly workspacePath?: string;
 }
 export function ConversationTimeline({
   transcript,
@@ -46,9 +49,11 @@ export function ConversationTimeline({
   viewport,
   threadSearch,
   onViewFileInDiff,
+  onReviewTurn,
   onForkFromMessage,
-  promptRailVisible = true,
+  onOpenWorkspaceFileLine,
   scheduledOrigins,
+  workspacePath,
 }: ConversationTimelineProps) {
   const { t } = useTranslation();
   const [expandedToolCallIds, setExpandedToolCallIds] = useState<Set<string>>(() => new Set());
@@ -76,18 +81,6 @@ export function ConversationTimeline({
     let index = 0;
     for (const item of transcript) if (item.kind === "message") indices.set(item.id, index++);
     return indices;
-  }, [transcript]);
-  const userPrompts = useMemo(() => {
-    const prompts: UserPromptEntry[] = [];
-    for (const item of transcript)
-      if (item.kind === "message" && item.role === "user") {
-        prompts.push({
-          id: item.id,
-          turnNumber: prompts.length + 1,
-          preview: buildPromptPreview(item.text),
-        });
-      }
-    return prompts;
   }, [transcript]);
   return (
     <div className="timeline-surface">
@@ -142,8 +135,11 @@ export function ConversationTimeline({
                   expandedToolCallIds={expandedToolCallIds}
                   onToggleToolCall={toggleToolCall}
                   onViewFileInDiff={onViewFileInDiff}
+                  onReviewTurn={onReviewTurn}
                   sourceMessageIndex={renderedMessageIndexById.get(item.id)}
                   onForkFromMessage={onForkFromMessage}
+                  onOpenWorkspaceFileLine={onOpenWorkspaceFileLine}
+                  workspacePath={workspacePath}
                   scheduledOrigin={
                     item.kind === "message" ? scheduledOrigins?.get(item.id) : undefined
                   }
@@ -163,61 +159,8 @@ export function ConversationTimeline({
           ) : null}
         </div>
       </div>
-      {promptRailVisible && !isTranscriptLoading && !transcriptFailed && userPrompts.length > 1 ? (
-        <TimelineContextRail prompts={userPrompts} onSelect={viewport.navigateToRow} />
-      ) : null}
     </div>
   );
-}
-
-interface UserPromptEntry {
-  readonly id: string;
-  readonly turnNumber: number;
-  readonly preview: string;
-}
-
-function TimelineContextRail({
-  prompts,
-  onSelect,
-}: {
-  readonly prompts: readonly UserPromptEntry[];
-  readonly onSelect: (messageId: string) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <nav
-      className="timeline-context-rail"
-      data-testid="timeline-context-rail"
-      aria-label={t("thread.promptsLabel")}
-    >
-      <div className="timeline-context-rail__title">{t("thread.prompts")}</div>
-      <ol className="timeline-context-rail__list">
-        {prompts.map((prompt) => (
-          <li key={prompt.id}>
-            <button
-              type="button"
-              className="timeline-context-rail__item"
-              data-testid="timeline-context-rail-item"
-              title={prompt.preview}
-              onClick={() => onSelect(prompt.id)}
-            >
-              <span className="timeline-context-rail__index">{prompt.turnNumber}</span>
-              <span className="timeline-context-rail__text">{prompt.preview}</span>
-            </button>
-          </li>
-        ))}
-      </ol>
-    </nav>
-  );
-}
-
-function buildPromptPreview(text: string): string {
-  const firstLine =
-    text
-      .split("\n")
-      .map((line) => line.trim())
-      .find((line) => line.length > 0) ?? "";
-  return firstLine.length > 80 ? `${firstLine.slice(0, 80)}…` : firstLine || "Prompt";
 }
 
 function TranscriptSkeleton() {
@@ -293,9 +236,12 @@ interface MeasuredTimelineItemProps {
   readonly expandedToolCallIds: ReadonlySet<string>;
   readonly onToggleToolCall: (callId: string) => void;
   readonly onViewFileInDiff?: (path: string) => void;
+  readonly onReviewTurn?: (messageId: string) => Promise<void>;
   readonly sourceMessageIndex?: number;
   readonly onForkFromMessage?: (messageIndex: number, preview?: string) => void;
+  readonly onOpenWorkspaceFileLine?: (target: WorkspaceFileLine) => void;
   readonly scheduledOrigin?: ScheduledTaskOrigin;
+  readonly workspacePath?: string;
 }
 
 function MeasuredTimelineItemBase({
@@ -307,9 +253,12 @@ function MeasuredTimelineItemBase({
   expandedToolCallIds,
   onToggleToolCall,
   onViewFileInDiff,
+  onReviewTurn,
   sourceMessageIndex,
   onForkFromMessage,
+  onOpenWorkspaceFileLine,
   scheduledOrigin,
+  workspacePath,
 }: MeasuredTimelineItemProps) {
   const rowRef = useRef<HTMLDivElement | null>(null);
 
@@ -346,9 +295,12 @@ function MeasuredTimelineItemBase({
         expandedToolCallIds={expandedToolCallIds}
         onToggleToolCall={onToggleToolCall}
         onViewFileInDiff={onViewFileInDiff}
+        onReviewTurn={onReviewTurn}
         sourceMessageIndex={sourceMessageIndex}
         onForkFromMessage={onForkFromMessage}
+        onOpenWorkspaceFileLine={onOpenWorkspaceFileLine}
         scheduledOrigin={scheduledOrigin}
+        workspacePath={workspacePath}
       />
     </div>
   );
@@ -367,7 +319,12 @@ function isSameDisplayItem(a: DisplayTimelineItem, b: DisplayTimelineItem): bool
     return false;
   }
   if (a.kind === "message" && b.kind === "message") {
-    return a.role === b.role && a.text === b.text && a.attachments === b.attachments;
+    return (
+      a.role === b.role &&
+      a.text === b.text &&
+      a.attachments === b.attachments &&
+      a.sourceMessageId === b.sourceMessageId
+    );
   }
   if (a.kind === "tool" && b.kind === "tool") {
     // input/output are rebuilt objects on every transcript update, so identity
@@ -409,8 +366,11 @@ function areMeasuredTimelineItemPropsEqual(
     prev.expandedToolCallIds === next.expandedToolCallIds &&
     prev.onToggleToolCall === next.onToggleToolCall &&
     prev.onViewFileInDiff === next.onViewFileInDiff &&
+    prev.onReviewTurn === next.onReviewTurn &&
     prev.sourceMessageIndex === next.sourceMessageIndex &&
     prev.onForkFromMessage === next.onForkFromMessage &&
+    prev.onOpenWorkspaceFileLine === next.onOpenWorkspaceFileLine &&
+    prev.workspacePath === next.workspacePath &&
     prev.scheduledOrigin?.taskId === next.scheduledOrigin?.taskId
   );
 }

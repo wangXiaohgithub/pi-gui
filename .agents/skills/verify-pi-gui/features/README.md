@@ -30,7 +30,21 @@ Record exact feature/entry point, command, result and evidence directory. `compl
 
 Packaged-app launch, native dialogs/clipboard, model/account onboarding, attachments, file/diff/terminal interaction, and broader extension behavior require separate mapped journeys as those features are changed. Do not claim full-app coverage from this initial map.
 
-## Latest observed proof (2026-09-19)
+## Latest observed proof (2026-09-22)
+
+The completed review/extension implementation passed all ten real-provider conversation
+checkpoints in `run-bif5h7` and all seven maintenance checkpoints in `run-XBuK0l`,
+using `openai-codex/gpt-5.6-sol`. No assertion failures were recorded. Stop now proves
+cancellation of a real bounded shell command before its completion marker, instead
+of depending on how long the model chooses to write. This run aborted the command
+in 568 ms; both tasks and their independent drafts survived restart. The conversation
+and follow-up traces were inspected in the trace viewer and showed no errors.
+Owned Electron processes exited. Separate real-provider PR Review and local macOS
+packaged-app checks also passed; see the [redesign verification report](../../../../docs/workspace-redesign-verification.md)
+for their scope and retained evidence. Windows/Linux packaging and notarization
+were not part of this proof.
+
+## Earlier observed proof (2026-09-19)
 
 - `run-iBtFrn` on product fix `2411711f`: all 10 real-provider checkpoints passed, with no assertion failures. Typing a multiline draft during streaming plus forty 4 px upward inputs progressed monotonically from 480.5 to 324.5 px; subsequent text growth kept reading position within 2 px. Jump, completion, tools, Stop, switching, archive/restore, both drafts and restart passed. The short frame sample had p95 9.2 ms and no intervals above 33 ms. PIDs 17428 and 17948 closed. This proves automated Electron wheel input, not physical trackpad hardware.
 
@@ -44,7 +58,7 @@ Packaged-app launch, native dialogs/clipboard, model/account onboarding, attachm
 
 - `run-DlCXRS`: visible real `openai-codex/gpt-5.6-luna` conversation proof passed with the new viewport owner. While Stop run was visible, wheel input moved away from the bottom, assistant text continued growing, and reading position stayed within 2 CSS pixels. Jump returned to the bottom. Streaming, switch-during-run, tool, Stop, draft isolation, archive/restore, and both conversations after restart passed. `scroll-frames.json`: 181 intervals, p95 9.1 ms, max 9.3 ms, none above 33 ms. This is a short diagnostic sample, not a general performance guarantee or native trackpad proof. Owned processes closed.
 - `run-mm4hik`: preceding recipe attempt produced only 380 px of overflow against a 500 px fixture requirement; it failed before scroll proof. The recipe now requests 120 longer lines and waits for 300 px of overflow while still running. Retain the failed run.
-- Focused Core coverage is `timeline-pinning.spec.ts`, `context-rail.spec.ts`, and `timeline-viewport.spec.ts`. The latter covers windowed long messages, click/downward-wheel intent, search navigation, a growing 700-line code row, and layout clamping. Its frame timing is diagnostic; correctness assertions are required in Core.
+- Focused Core coverage is `timeline-pinning.spec.ts`, `context-rail.spec.ts` (turn timing markers), and `timeline-viewport.spec.ts`. The latter covers windowed long messages, click/downward-wheel intent, search navigation, a growing 700-line code row, and layout clamping. Its frame timing is diagnostic; correctness assertions are required in Core.
 
 ## Earlier observed proof (2026-09-18)
 

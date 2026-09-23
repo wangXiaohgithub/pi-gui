@@ -378,11 +378,7 @@ export function SecondarySurfaces({
           }}
           onToggleSkill={handleToggleSkill}
           onTrySkill={(skill) =>
-            onTrySkill(
-              skill.filePath
-                ? `${skill.slashCommand} `
-                : "Create a new skill for this workspace and explain which files you will add.",
-            )
+            onTrySkill(skill.filePath ? `${skill.slashCommand} ` : t("skills.newPrompt"))
           }
         />
       </SecondarySurface>

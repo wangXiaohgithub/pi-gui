@@ -208,7 +208,7 @@ export function ExtensionsView({
                 <ExtensionContributionSection
                   title={t("extensions.commands")}
                   items={selectedExtension.commands}
-                  emptyLabel="No commands contributed."
+                  emptyLabel={t("extensions.noCommands")}
                 />
                 <ExtensionCompatibilitySection
                   commands={selectedExtension.commands}
@@ -217,17 +217,17 @@ export function ExtensionsView({
                 <ExtensionContributionSection
                   title={t("extensions.tools")}
                   items={selectedExtension.tools}
-                  emptyLabel="No tools contributed."
+                  emptyLabel={t("extensions.noTools")}
                 />
                 <ExtensionContributionSection
                   title={t("extensions.flags")}
                   items={selectedExtension.flags}
-                  emptyLabel="No flags contributed."
+                  emptyLabel={t("extensions.noFlags")}
                 />
                 <ExtensionContributionSection
                   title={t("extensions.shortcuts")}
                   items={selectedExtension.shortcuts}
-                  emptyLabel="No shortcuts contributed."
+                  emptyLabel={t("extensions.noShortcuts")}
                 />
                 <ExtensionDiagnostics diagnostics={selectedExtension.diagnostics} />
               </>

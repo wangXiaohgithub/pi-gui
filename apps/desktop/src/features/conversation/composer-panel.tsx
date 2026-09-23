@@ -6,6 +6,7 @@ import {
   type RefObject,
   type SetStateAction,
 } from "react";
+import { useTranslation } from "react-i18next";
 import type { RuntimeSnapshot } from "@pi-gui/session-driver/runtime-types";
 import type {
   ComposerAttachment,
@@ -28,9 +29,9 @@ import type {
 } from "../settings/model-onboarding";
 import { ModelSelector } from "./model-selector";
 import type { ExtensionDockModel } from "../extensions/extension-session-ui";
-import { useTranslation } from "react-i18next";
 
 interface ComposerPanelProps {
+  readonly preparingTaskDraft?: boolean;
   readonly selectedSession: SessionRecord;
   readonly lastError?: string;
   readonly runtime?: RuntimeSnapshot;
@@ -70,6 +71,7 @@ interface ComposerPanelProps {
   readonly modelOnboarding: ModelOnboardingState;
   readonly onOpenModelSettings: (section: ModelOnboardingSettingsSection) => void;
   readonly onSubmit: () => void;
+  readonly onStop: () => void;
   readonly showMentionMenu: boolean;
   readonly mentionOptions: readonly MentionOption[];
   readonly selectedMentionIndex: number;
@@ -83,6 +85,7 @@ interface ComposerPanelProps {
 }
 
 export function ComposerPanel({
+  preparingTaskDraft = false,
   selectedSession,
   lastError,
   runtime,
@@ -122,6 +125,7 @@ export function ComposerPanel({
   modelOnboarding,
   onOpenModelSettings,
   onSubmit,
+  onStop,
   showMentionMenu,
   mentionOptions,
   selectedMentionIndex,
@@ -136,8 +140,8 @@ export function ComposerPanel({
   const primaryActionIsStop = selectedSession.status === "running" && !hasComposerInput;
 
   return (
-    <footer className="composer">
-      <div className="conversation conversation--composer">
+    <footer className="composer" aria-busy={preparingTaskDraft}>
+      <div className="conversation conversation--composer" inert={preparingTaskDraft}>
         <ComposerSurface
           lastError={lastError}
           activeSlashCommand={activeSlashCommand}
@@ -186,11 +190,7 @@ export function ComposerPanel({
           footer={
             <div className="composer__footer">
               <div className="composer__footer-row">
-                <div className="composer__hint">
-                  {selectedSession.status === "running"
-                    ? t("composer.runningHint", { running: runningLabel })
-                    : t("composer.idleHint")}
-                  {" · "}
+                <div className="composer__config">
                   <ModelSelector
                     runtime={runtime}
                     provider={provider}
@@ -228,10 +228,33 @@ export function ComposerPanel({
                   </button>
                 </div>
               </div>
+              <div className="composer__hint">
+                {selectedSession.status === "running"
+                  ? t("composer.runningHint", { running: runningLabel })
+                  : t("composer.idleHint")}
+              </div>
             </div>
           }
         />
       </div>
+      {preparingTaskDraft ? (
+        <div className="composer__footer-row">
+          <p className="composer__hint" role="status" data-testid="composer-prepare-task-status">
+            {t("composer.preparingTask")}
+          </p>
+          {selectedSession.status === "running" ? (
+            <button
+              aria-label={t("composer.stop")}
+              className="button button--primary button--cta-icon"
+              data-testid="stop-while-preparing-task"
+              onClick={onStop}
+              type="button"
+            >
+              <StopSquareIcon />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </footer>
   );
 }

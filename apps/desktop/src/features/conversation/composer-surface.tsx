@@ -550,6 +550,7 @@ function MentionMenuItem({
   readonly onSelect: (option: MentionOption) => void;
   readonly onEnableExtension: (option: ExtensionMentionOption) => void;
 }) {
+  const { t } = useTranslation();
   if (option.kind === "extension") {
     return (
       <div
@@ -575,7 +576,7 @@ function MentionMenuItem({
               <span className="mention-menu__filename">{option.displayName}</span>
               {option.enabled ? null : (
                 <span className="mention-menu__badge">
-                  {option.enabling ? "Enabling" : "Disabled"}
+                  {option.enabling ? t("composer.enabling") : t("common.disabled")}
                 </span>
               )}
             </span>
@@ -584,13 +585,13 @@ function MentionMenuItem({
         </button>
         {option.enabled ? null : (
           <button
-            aria-label={`Enable ${option.displayName}`}
+            aria-label={t("composer.enableExtension", { name: option.displayName })}
             className="mention-menu__enable"
             disabled={option.enabling}
             type="button"
             onClick={() => onEnableExtension(option)}
           >
-            {option.enabling ? "Enabling" : "Enable"}
+            {option.enabling ? t("composer.enabling") : t("common.enable")}
           </button>
         )}
       </div>

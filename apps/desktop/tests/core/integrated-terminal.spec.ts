@@ -8,11 +8,12 @@ import {
   makeUserDataDir,
   makeWorkspace,
   selectSession,
+  selectSidePanel,
   TINY_PNG_BASE64,
   waitForWorkspaceByPath,
 } from "../helpers/electron-app";
 
-test("opens a workspace terminal with persistent output, tabs, and takeover controls", async () => {
+test("opens task terminals with persistent output and independent shell tabs", async () => {
   test.setTimeout(90_000);
 
   const userDataDir = await makeUserDataDir();
@@ -27,12 +28,7 @@ test("opens a workspace terminal with persistent output, tabs, and takeover cont
     await waitForWorkspaceByPath(window, workspacePath);
     await createNamedThread(window, "Terminal host thread");
 
-    await window.getByLabel("Toggle terminal").hover();
-    const terminalTooltip = window.locator(".topbar__tooltip", { hasText: "Toggle terminal" });
-    await expect(terminalTooltip).toContainText("Toggle terminal");
-    await expect(terminalTooltip.locator("kbd")).toHaveText(/⌘J|Ctrl\+J/);
-
-    await window.getByLabel("Toggle terminal").click();
+    await selectSidePanel(window, "Terminal");
     const terminal = window.getByTestId("integrated-terminal");
     await expect(terminal).toBeVisible();
     await expect(window.getByTestId("terminal-tab")).toHaveCount(1);
@@ -65,8 +61,6 @@ test("opens a workspace terminal with persistent output, tabs, and takeover cont
       window.getByTestId("integrated-terminal").locator(".xterm-rows"),
     ).not.toContainText("PI_TERMINAL_OK");
     await selectSession(window, "Terminal host thread");
-    await expect(window.getByTestId("integrated-terminal")).toHaveCount(0);
-    await window.keyboard.press(desktopShortcut("J"));
     await expect(window.getByTestId("integrated-terminal")).toBeVisible();
     await expect(window.getByTestId("integrated-terminal").locator(".xterm-rows")).toContainText(
       "PI_TERMINAL_OK",
@@ -94,17 +88,6 @@ test("opens a workspace terminal with persistent output, tabs, and takeover cont
     await window.keyboard.press(desktopShortcut("T"));
     await expect(window.getByTestId("terminal-tab")).toHaveCount(3);
 
-    const beforeTakeover = await window.getByTestId("integrated-terminal").boundingBox();
-    await window.getByLabel("Maximize terminal").click();
-    await expect(window.getByTestId("integrated-terminal")).toHaveClass(/terminal-panel--takeover/);
-    await expect(window.getByTestId("composer")).toHaveCount(0);
-    const takeover = await window.getByTestId("integrated-terminal").boundingBox();
-    expect(takeover?.height ?? 0).toBeGreaterThan(beforeTakeover?.height ?? 0);
-
-    await window.getByLabel("Restore terminal").click();
-    await expect(window.getByTestId("integrated-terminal")).not.toHaveClass(
-      /terminal-panel--takeover/,
-    );
     await expect(window.getByTestId("composer")).toBeVisible();
 
     await window
@@ -156,7 +139,7 @@ test("pastes clipboard text into the integrated terminal once", async () => {
     await waitForWorkspaceByPath(window, workspacePath);
     await createNamedThread(window, "Terminal paste thread");
 
-    await window.getByLabel("Toggle terminal").click();
+    await selectSidePanel(window, "Terminal");
     const terminal = window.getByTestId("integrated-terminal");
     await expect(terminal).toBeVisible();
     await terminal.locator(".xterm").click();
@@ -197,7 +180,7 @@ test("writes an oversized terminal paste in chunks instead of dropping it", asyn
     await waitForWorkspaceByPath(window, workspacePath);
     await createNamedThread(window, "Terminal large paste thread");
 
-    await window.getByLabel("Toggle terminal").click();
+    await selectSidePanel(window, "Terminal");
     const terminal = window.getByTestId("integrated-terminal");
     await expect(terminal).toBeVisible();
     await terminal.locator(".xterm").click();

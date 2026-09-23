@@ -6,11 +6,13 @@ import {
   Menu,
   nativeImage,
   net,
+  protocol,
   shell,
   type MenuItemConstructorOptions,
   type MessageBoxOptions,
 } from "electron";
 import { isValidHttpBaseUrl } from "@pi-gui/pi-sdk-driver";
+import { createRequire } from "node:module";
 import { randomUUID } from "node:crypto";
 import type { AgentToolResult, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { readFile, stat } from "node:fs/promises";
@@ -19,6 +21,14 @@ import { pathToFileURL } from "node:url";
 import { augmentPosixPath } from "../scripts/augment-path.cjs";
 import { DesktopAppStore } from "./application/app-store";
 import { WindowOwner } from "./windows/window-owner";
+import { TurnCheckpointStore } from "./workbench/checkpoint-store";
+import {
+  DesktopExtensionViewOwner,
+  DESKTOP_EXTENSION_SCHEME,
+} from "./extensions/extension-view-owner";
+import { performExtensionViewHostAction } from "./extensions/extension-view-actions";
+import { extensionFrameDocument } from "./extensions/extension-frame-document";
+import { ReviewOwner } from "./workbench/review-owner";
 import { registerDesktopIpc } from "./ipc/register-desktop-ipc";
 import {
   createOrchestrationRuntimeExtension,
@@ -43,8 +53,11 @@ import { nativeText } from "../contracts/native-copy";
 import { TerminalService } from "./platform/terminal-service";
 import type { DesktopAppState, DesktopAppViewState } from "../contracts/desktop-state";
 import {
+  desktopCommands,
   desktopIpc,
   getDesktopCommandFromShortcut,
+  isCloseFocusedSurfaceShortcut,
+  platformShortcutModifier,
   type CustomProviderProbeInput,
   type CustomProviderProbeResult,
 } from "../contracts/ipc";
@@ -64,11 +77,19 @@ import type { SessionDriverEvent } from "@pi-gui/session-driver";
 import type { GenerateThreadTitleOptions } from "@pi-gui/pi-sdk-driver";
 import type { SessionRef, WorkspaceRef } from "@pi-gui/session-driver";
 
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: DESKTOP_EXTENSION_SCHEME,
+    privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true },
+  },
+]);
+
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
 const appTestMode = resolveAppTestMode(process.env.PI_APP_TEST_MODE);
 const windowTestMode = appTestMode ?? "foreground";
 const devReloadMarkersEnabled = process.env.PI_APP_DEV_RELOAD_MARKERS === "1";
 let store: DesktopAppStore;
+let extensionViewOwner: DesktopExtensionViewOwner | undefined;
 let windowOwner: WindowOwner;
 const themeManager = new ThemeManager();
 let mainWindow: BrowserWindow | null = null;
@@ -143,6 +164,8 @@ let stopUpdateChecker: (() => void) | undefined;
 let stopPruningTerminals: (() => void) | undefined;
 let retainedTerminalWorkspacePathSignature = "";
 const terminalFocusedWebContentsIds = new Set<number>();
+const sidePanelFocusedWebContentsIds = new Set<number>();
+const surfaceCloseShortcutIds = new Set<number>();
 let quittingAfterStoreFlush = false;
 
 const SUPPORTED_IMAGE_TYPES = SUPPORTED_COMPOSER_IMAGE_TYPES;
@@ -342,6 +365,16 @@ function readClipboardImageAttachment(): ClipboardImageRead {
   };
 }
 
+function dispatchCloseFocusedSurface(window: BrowserWindow, event: Electron.Event): void {
+  event.preventDefault();
+  const webContentsId = window.webContents.id;
+  surfaceCloseShortcutIds.add(webContentsId);
+  setImmediate(() => {
+    surfaceCloseShortcutIds.delete(webContentsId);
+  });
+  window.webContents.send(desktopIpc.appCommand, desktopCommands.closeFocusedSurface);
+}
+
 function createWindow(): BrowserWindow {
   const backgroundTestMode = windowTestMode === "background";
   const enableTransparency = store ? store.snapshot().enableTransparency : false;
@@ -373,6 +406,23 @@ function createWindow(): BrowserWindow {
     }
     return { action: "deny" };
   });
+  window.webContents.on("will-frame-navigate", (event) => {
+    if (event.isMainFrame) return;
+    try {
+      const url = new URL(event.url);
+      if (
+        url.protocol !== `${DESKTOP_EXTENSION_SCHEME}:` ||
+        url.pathname !== "/" ||
+        url.search ||
+        url.hash
+      )
+        throw new Error("Unexpected frame navigation");
+      if (!extensionViewOwner) throw new Error("Extension host unavailable");
+      extensionViewOwner.getConnectionContext(url.hostname, window.webContents.id);
+    } catch {
+      event.preventDefault();
+    }
+  });
   window.webContents.on("will-navigate", (event, url) => {
     if (isInAppNavigationUrl(url)) {
       return;
@@ -381,6 +431,13 @@ function createWindow(): BrowserWindow {
     openExternalWebUrl(url);
   });
 
+  window.on("close", (event) => {
+    if (!surfaceCloseShortcutIds.has(window.webContents.id)) {
+      return;
+    }
+    event.preventDefault();
+    surfaceCloseShortcutIds.delete(window.webContents.id);
+  });
   window.once("ready-to-show", () => {
     if (!backgroundTestMode) {
       window.show();
@@ -392,9 +449,38 @@ function createWindow(): BrowserWindow {
     }
 
     const lowerKey = input.key.toLowerCase();
-    const platformModifier = process.platform === "darwin" ? input.meta : input.control;
-    const terminalFocused = terminalFocusedWebContentsIds.has(window.webContents.id);
+    const platformModifier = platformShortcutModifier(process.platform, input);
+    const command = getDesktopCommandFromShortcut({
+      modifier: platformModifier,
+      alt: input.alt,
+      shift: input.shift,
+      key: input.key,
+      code: input.code,
+    });
+    const webContentsId = window.webContents.id;
+    const terminalFocused = terminalFocusedWebContentsIds.has(webContentsId);
+    const closeFocusedSurface =
+      isCloseFocusedSurfaceShortcut({
+        meta: input.meta,
+        control: input.control,
+        alt: input.alt,
+        shift: input.shift,
+        key: input.key,
+        code: input.code,
+        platform: process.platform,
+      }) &&
+      (terminalFocused || sidePanelFocusedWebContentsIds.has(webContentsId));
     if (terminalFocused) {
+      if (command === desktopCommands.toggleSidePanel) {
+        event.preventDefault();
+        window.webContents.send(desktopIpc.appCommand, command);
+      } else if (closeFocusedSurface) {
+        dispatchCloseFocusedSurface(window, event);
+      }
+      return;
+    }
+    if (closeFocusedSurface) {
+      dispatchCloseFocusedSurface(window, event);
       return;
     }
     if (platformModifier && !input.shift && lowerKey === "n") {
@@ -420,12 +506,6 @@ function createWindow(): BrowserWindow {
       }
     }
 
-    const command = getDesktopCommandFromShortcut({
-      modifier: process.platform === "darwin" ? input.meta : input.control,
-      shift: input.shift,
-      key: input.key,
-      code: input.code,
-    });
     if (command) {
       event.preventDefault();
       window.webContents.send(desktopIpc.appCommand, command);
@@ -457,6 +537,8 @@ function createAppWindow(sourceView?: DesktopAppViewState): BrowserWindow {
   window.once("closed", () => {
     windowOwner.remove(window);
     terminalFocusedWebContentsIds.delete(webContentsId);
+    sidePanelFocusedWebContentsIds.delete(webContentsId);
+    surfaceCloseShortcutIds.delete(webContentsId);
     terminalService?.disposeWebContents(webContentsId);
     void store
       .cancelPendingDialogsWithoutVisibleWindow((sessionRef) =>
@@ -733,7 +815,39 @@ app
       | undefined;
     const orchestrationRuntimeBridge = createStoreBackedOrchestrationRuntimeBridge();
     const scheduledTaskRuntimeBridge = createStoreBackedScheduledTaskRuntimeBridge();
-    const driverOptions = {
+    const checkpoints = new TurnCheckpointStore(configuredUserDataDir);
+    const extensionViews: DesktopExtensionViewOwner = new DesktopExtensionViewOwner({
+      frameDocument: extensionFrameDocument,
+      hostAssets: {
+        "frame-bridge.js": {
+          body: await readFile(
+            createRequire(__filename).resolve("@pi-gui/extension-ui/frame-bridge"),
+            "utf8",
+          ),
+          contentType: "text/javascript; charset=utf-8",
+        },
+      },
+      onHostAction: (context) =>
+        performExtensionViewHostAction(
+          { store, windows: windowOwner, views: extensionViews },
+          context,
+        ),
+      onDiagnostic: (target, source, message) =>
+        console.error("[extension-view]", target.sessionId, source, message),
+    });
+    extensionViewOwner = extensionViews;
+    protocol.handle(DESKTOP_EXTENSION_SCHEME, (request) =>
+      extensionViews.assetResponse(request.url),
+    );
+    const driverOptions: NonNullable<
+      ConstructorParameters<typeof DesktopAppStore>[0]["driverOptions"]
+    > = {
+      onTurnCaptureBoundary: (boundary, signal) => checkpoints.recordBoundary(boundary, signal),
+      desktopExtensions: {
+        onChanged: (runtime) => extensionViews.replaceRuntime(runtime),
+        onInvalidated: ({ target, generation }) =>
+          extensionViews.invalidateRuntime(target, generation),
+      },
       extensionFactories: [
         createOrchestrationRuntimeExtension(orchestrationRuntimeBridge),
         createScheduledTaskRuntimeExtension(scheduledTaskRuntimeBridge, (ctx) => {
@@ -862,6 +976,21 @@ app
       windows: windowOwner,
       owners: {
         state: store,
+        workbench: store,
+        extensionViews,
+        review: new ReviewOwner({
+          checkpoints,
+          userDataDir: app.getPath("userData"),
+          resolveCheckoutPath: (checkoutId) => store.getWorkspacePath(checkoutId),
+          validateTask: (target) =>
+            store
+              .snapshot()
+              .workspaces.some(
+                (workspace) =>
+                  workspace.id === target.workspaceId &&
+                  workspace.sessions.some((session) => session.id === target.sessionId),
+              ),
+        }),
         workspace: store,
         conversation: store,
         orchestration: store,
@@ -892,6 +1021,13 @@ app
             terminalFocusedWebContentsIds.add(webContentsId);
           } else {
             terminalFocusedWebContentsIds.delete(webContentsId);
+          }
+        },
+        setSidePanelFocused: (webContentsId, focused) => {
+          if (focused) {
+            sidePanelFocusedWebContentsIds.add(webContentsId);
+          } else {
+            sidePanelFocusedWebContentsIds.delete(webContentsId);
           }
         },
         setTransparency: (enabled) => {
@@ -995,9 +1131,11 @@ app.on("before-quit", (event) => {
 
   event.preventDefault();
   quittingAfterStoreFlush = true;
-  const flush = store.flushPersistence().catch((error) => {
-    console.error("pi-gui: persistence flush failed during quit:", error);
-  });
+  const flush = Promise.all([store.flushPersistence(), extensionViewOwner?.dispose()]).catch(
+    (error) => {
+      console.error("pi-gui: persistence flush failed during quit:", error);
+    },
+  );
   // Never let a hung flush block quit forever — quit after a bounded wait.
   const flushDeadline = new Promise<void>((resolve) => {
     setTimeout(() => {

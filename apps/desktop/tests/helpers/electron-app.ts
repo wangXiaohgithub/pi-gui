@@ -682,6 +682,57 @@ export async function seedExternalLinkSessionFixture(
   });
 }
 
+export async function seedNamedTextSessionFixture(
+  agentDir: string,
+  workspacePath: string,
+  session: {
+    readonly title: string;
+    readonly userText: string;
+    readonly assistantText: string;
+  },
+): Promise<{
+  readonly sessionId: string;
+  readonly title: string;
+}> {
+  const { SessionManager } = (await import("@earendil-works/pi-coding-agent")) as {
+    SessionManager: {
+      create(cwd: string): {
+        appendMessage(message: {
+          role: "user" | "assistant";
+          content: string;
+          timestamp: number;
+        }): string;
+        appendSessionInfo(name: string): string;
+        getSessionId(): string;
+      };
+    };
+  };
+
+  return withAgentDirEnv(agentDir, async () => {
+    const sessionManager = SessionManager.create(workspacePath);
+    let timestamp = Date.now();
+    const nextTimestamp = () => {
+      timestamp += 1_000;
+      return timestamp;
+    };
+    sessionManager.appendMessage({
+      role: "user",
+      content: session.userText,
+      timestamp: nextTimestamp(),
+    });
+    sessionManager.appendMessage({
+      role: "assistant",
+      content: session.assistantText,
+      timestamp: nextTimestamp(),
+    });
+    sessionManager.appendSessionInfo(session.title);
+    return {
+      sessionId: sessionManager.getSessionId(),
+      title: session.title,
+    };
+  });
+}
+
 export async function seedToolResultTreeSessionFixture(
   agentDir: string,
   workspacePath: string,
@@ -980,7 +1031,7 @@ export async function waitForSelectedSessionReady(
     )
     .toBe(true);
 
-  await expect(window.locator(".topbar__session")).toHaveText(expectedTitle, { timeout });
+  await expect(window.locator(".chat-header__title")).toHaveText(expectedTitle, { timeout });
   await expect(window.getByTestId("transcript-skeleton")).toHaveCount(0, { timeout });
   await expect(window.getByTestId("composer")).toHaveValue(expectedComposerDraft, { timeout });
 
@@ -1552,7 +1603,28 @@ export async function waitForSessionByTitle(
 
 export async function selectSession(window: Page, sessionTitle: string): Promise<void> {
   await clickSession(window, sessionTitle);
-  await expect(window.locator(".topbar__session")).toHaveText(sessionTitle);
+  await expect(window.locator(".chat-header__title")).toHaveText(sessionTitle);
+}
+
+export async function selectSidePanel(
+  window: Page,
+  choice: "Files" | "Changes" | "Worktrees" | "Terminal",
+): Promise<void> {
+  const workbench = window.getByTestId("workbench");
+  if (!(await workbench.isVisible())) {
+    await window.getByTestId("toggle-side-panel").click();
+  }
+  const existing = workbench.getByRole("tab", { name: choice, exact: true });
+  if (await existing.count()) {
+    await existing.click();
+  } else {
+    const chooser = window.getByTestId("workbench-chooser");
+    if (!(await chooser.isVisible())) {
+      await window.getByTestId("workbench-add-tab").click();
+    }
+    await chooser.getByRole("button", { name: choice, exact: true }).click();
+  }
+  await expect(existing).toHaveAttribute("aria-selected", "true");
 }
 
 export async function clickSession(window: Page, sessionTitle: string): Promise<void> {

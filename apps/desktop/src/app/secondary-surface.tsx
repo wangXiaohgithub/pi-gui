@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 export interface SecondarySurfaceNavItem {
@@ -26,6 +26,21 @@ export function SecondarySurface({
   children,
 }: SecondarySurfaceProps) {
   const { t } = useTranslation();
+  const backRef = useRef(onBack);
+  backRef.current = onBack;
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || event.repeat)
+        return;
+      // Nested dialogs own Escape, including while a pending operation disables dismissal.
+      if (document.querySelector("[aria-modal='true'], .extension-dialog-backdrop")) return;
+      event.preventDefault();
+      backRef.current();
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, []);
+
   return (
     <div className="secondary-surface" data-testid={testId}>
       <aside className="secondary-surface__sidebar">
@@ -35,7 +50,7 @@ export function SecondarySurface({
         </button>
         <div className="secondary-surface__title">{title}</div>
         {navItems.length > 0 ? (
-          <nav className="secondary-surface__nav" aria-label={`${title} sections`}>
+          <nav className="secondary-surface__nav" aria-label={t("shell.sections", { title })}>
             {navItems.map((item) => (
               <button
                 key={item.id}

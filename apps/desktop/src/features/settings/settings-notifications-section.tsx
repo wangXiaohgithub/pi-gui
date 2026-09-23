@@ -145,14 +145,14 @@ function descriptionForPermissionStatus(
 ): string {
   switch (status) {
     case "granted":
-      return "macOS will allow pi-gui to show desktop notifications for background thread updates.";
+      return t("settings.notifications.permissionGranted");
     case "denied":
-      return "macOS notifications are turned off for pi-gui. Enable them in System Settings to receive background completion alerts.";
+      return t("settings.notifications.permissionDenied");
     case "default":
-      return "pi-gui has not asked macOS for desktop notification access yet.";
+      return t("settings.notifications.permissionDefault");
     case "unsupported":
       return t("settings.notifications.unavailable");
     default:
-      return "Checking whether macOS notifications are available for pi-gui.";
+      return t("settings.notifications.permissionChecking");
   }
 }

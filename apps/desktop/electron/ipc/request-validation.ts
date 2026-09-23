@@ -33,12 +33,44 @@ import {
   type UpdateScheduledTaskInput,
 } from "../../contracts/scheduled-tasks";
 import { assertComposerAttachmentsAccepted } from "../../contracts/composer-attachments";
+import {
+  decodeTaskWorkbenchTemplate,
+  type SaveTaskWorkbenchTemplateInput,
+} from "../../contracts/workbench";
 import type { AppLanguage } from "../../contracts/locale";
 import { isAppLanguage } from "../../contracts/locale";
+
+export function expectSaveTaskWorkbenchTemplateInput(
+  value: unknown,
+): SaveTaskWorkbenchTemplateInput {
+  const input = expectRecord(value, "workbench save");
+  if (Object.keys(input).some((key) => !["target", "template", "sequence"].includes(key))) {
+    throw new TypeError("workbench save contains an unsupported field");
+  }
+  if (
+    typeof input.sequence !== "number" ||
+    !Number.isSafeInteger(input.sequence) ||
+    input.sequence < 1
+  ) {
+    throw new TypeError("workbench sequence must be a positive safe integer");
+  }
+  return {
+    target: expectSessionTarget(input.target),
+    template: decodeTaskWorkbenchTemplate(input.template),
+    sequence: input.sequence,
+  };
+}
 
 export function expectString(value: unknown, name: string): string {
   if (typeof value !== "string") {
     throw new TypeError(`${name} must be a string`);
+  }
+  return value;
+}
+
+export function expectAppLanguage(value: unknown, name = "language"): AppLanguage {
+  if (!isAppLanguage(value)) {
+    throw new TypeError(`${name} must be en or zh-CN`);
   }
   return value;
 }
@@ -133,13 +165,6 @@ export function expectThemeMode(value: unknown, name = "mode"): ThemeMode {
 export function expectThemePresetId(value: unknown, name = "presetId"): ThemePresetId {
   if (!isThemePresetId(value)) {
     throw new TypeError(`${name} must be a supported theme preset`);
-  }
-  return value;
-}
-
-export function expectAppLanguage(value: unknown, name = "language"): AppLanguage {
-  if (!isAppLanguage(value)) {
-    throw new TypeError(`${name} must be en or zh-CN`);
   }
   return value;
 }

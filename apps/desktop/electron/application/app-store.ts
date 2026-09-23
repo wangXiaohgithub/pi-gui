@@ -110,6 +110,7 @@ import {
 } from "./app-store-utils";
 import type { CustomProviderConfig } from "../../contracts/ipc";
 import { resolveRepoWorkspaceId } from "../../contracts/workspace-roots";
+import { decodeTaskWorkbenchTemplate, type TaskWorkbenchTemplate } from "../../contracts/workbench";
 import { composerImageSavedSkipMessage } from "../../contracts/composer-attachments";
 import { quarantinePersistedComposerAttachments } from "../ipc/composer-attachment-pixels";
 import { SessionStateMap, type QueuedComposerEditState } from "../conversation/session-state-map";
@@ -163,7 +164,11 @@ export interface DesktopAppStoreOptions {
   readonly shouldKeepSessionDialogs?: (sessionRef: SessionRef) => boolean;
   readonly driverOptions?: Pick<
     PiSdkDriverConfig,
-    "extensionFactories" | "inlineExtensionMetadata"
+    | "extensionFactories"
+    | "inlineExtensionMetadata"
+    | "desktopExtensions"
+    | "onTurnCaptureBoundary"
+    | "turnCaptureTimeoutMs"
   >;
   readonly generateThreadTitleOverride?: (
     workspace: WorkspaceRef,
@@ -226,6 +231,7 @@ export class DesktopAppStore {
   private scheduledTasksWritable = false;
   private readonly attachmentStore: AttachmentStore;
   private readonly sessionState = new SessionStateMap();
+  private readonly taskWorkbenchTemplatesBySession = new Map<string, TaskWorkbenchTemplate>();
   private readonly runtimeByWorkspace = new Map<string, RuntimeSnapshot>();
   private readonly extensionCommandCompatibilityByWorkspace = new Map<
     string,
@@ -538,6 +544,41 @@ export class DesktopAppStore {
   async getState(): Promise<DesktopAppState> {
     await this.initialize();
     return structuredClone(this.state);
+  }
+
+  async getTaskWorkbenchTemplate(target: SessionRef): Promise<TaskWorkbenchTemplate | null> {
+    await this.initialize();
+    this.requireWorkbenchTask(target);
+    return structuredClone(this.taskWorkbenchTemplatesBySession.get(sessionKey(target)) ?? null);
+  }
+
+  async saveTaskWorkbenchTemplate(
+    target: SessionRef,
+    template: TaskWorkbenchTemplate,
+  ): Promise<void> {
+    await this.initialize();
+    this.requireWorkbenchTask(target);
+    const key = sessionKey(target);
+    const validated = decodeTaskWorkbenchTemplate(template);
+    const previous = this.taskWorkbenchTemplatesBySession.get(key);
+    this.taskWorkbenchTemplatesBySession.set(key, validated);
+    try {
+      // No emit: a save must not rearrange another window showing this task.
+      await this.persistUiState();
+    } catch (error) {
+      if (this.taskWorkbenchTemplatesBySession.get(key) === validated) {
+        if (previous) this.taskWorkbenchTemplatesBySession.set(key, previous);
+        else this.taskWorkbenchTemplatesBySession.delete(key);
+      }
+      throw error;
+    }
+  }
+
+  private requireWorkbenchTask(target: SessionRef): void {
+    if (this.persistenceReadiness !== "ready")
+      throw new Error("Saved UI state is unavailable; repair or restore it before saving layouts.");
+    if (!this.sessionFromState(target))
+      throw new Error("Workbench task does not exist in this workspace.");
   }
 
   snapshot(): DesktopAppState {
@@ -1903,6 +1944,10 @@ export class DesktopAppStore {
   }
 
   private restorePersistedUiState(persisted: LegacyPersistedUiState): void {
+    this.taskWorkbenchTemplatesBySession.clear();
+    for (const [key, template] of Object.entries(persisted.taskWorkbenchTemplatesBySession ?? {})) {
+      this.taskWorkbenchTemplatesBySession.set(key, template);
+    }
     this.state = {
       ...this.state,
       selectedWorkspaceId: persisted.selectedWorkspaceId ?? this.state.selectedWorkspaceId,
@@ -2268,7 +2313,14 @@ export class DesktopAppStore {
 
   /** Drop ui-state entries for sessions that no longer exist in the catalog. */
   private pruneOrphanedUiState(activeKeys: Set<string>, alreadyChanged = false): void {
-    if (this.sessionState.prunePersistedUiState(activeKeys) || alreadyChanged) {
+    let changed = this.sessionState.prunePersistedUiState(activeKeys) || alreadyChanged;
+    for (const key of this.taskWorkbenchTemplatesBySession.keys()) {
+      if (!activeKeys.has(key)) {
+        this.taskWorkbenchTemplatesBySession.delete(key);
+        changed = true;
+      }
+    }
+    if (changed) {
       this.schedulePersistUiState();
     }
   }
@@ -3107,6 +3159,7 @@ export class DesktopAppStore {
         runMetricsBySession: this.sessionState.runMetricsBySession,
         runningSinceBySession: this.sessionState.runningSinceBySession,
         activeAssistantMessageBySession: this.sessionState.activeAssistantMessageBySession,
+        pendingAssistantMessageBySession: this.sessionState.pendingAssistantMessageBySession,
         activeWorkingActivityBySession: this.sessionState.activeWorkingActivityBySession,
       });
       this.state = applySessionEventState(
@@ -3538,6 +3591,7 @@ export class DesktopAppStore {
       return;
     }
     const payload: PersistedUiState = {
+      taskWorkbenchTemplatesBySession: Object.fromEntries(this.taskWorkbenchTemplatesBySession),
       selectedWorkspaceId: this.state.selectedWorkspaceId || undefined,
       selectedSessionId: this.state.selectedSessionId || undefined,
       activeView: this.state.activeView,
