@@ -7,10 +7,14 @@ export function checkWorkspaceTypechecks(root, pnpmPath) {
   root = realpathSync(root);
   if (!pnpmPath) throw new Error("Run this guard through pnpm check:workspaces.");
   const projects = JSON.parse(
-    execFileSync(process.execPath, [pnpmPath, "-r", "list", "--depth", "-1", "--json"], {
-      cwd: root,
-      encoding: "utf8",
-    }),
+    execFileSync(
+      process.execPath,
+      [pnpmPath, "--dir", root, "-r", "list", "--depth", "-1", "--json"],
+      {
+        cwd: root,
+        encoding: "utf8",
+      },
+    ),
   );
   const workspaces = projects.filter((project) => realpathSync(project.path) !== root);
   if (!workspaces.length) throw new Error("No workspaces discovered; refusing to skip typechecks.");

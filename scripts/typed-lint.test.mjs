@@ -116,10 +116,14 @@ const requiredTypedRules = [
 async function workspaceLintFailures(workspaceRoot) {
   const pnpmPath = process.env.npm_execpath ?? path.join(root, "node_modules/pnpm/bin/pnpm.cjs");
   const projects = JSON.parse(
-    execFileSync(process.execPath, [pnpmPath, "-r", "list", "--depth", "-1", "--json"], {
-      cwd: workspaceRoot,
-      encoding: "utf8",
-    }),
+    execFileSync(
+      process.execPath,
+      [pnpmPath, "--dir", workspaceRoot, "-r", "list", "--depth", "-1", "--json"],
+      {
+        cwd: workspaceRoot,
+        encoding: "utf8",
+      },
+    ),
   ).filter((project) => realpathSync(project.path) !== realpathSync(workspaceRoot));
   assert.ok(projects.length, "No workspaces discovered; cannot prove typed lint coverage.");
   const eslint = new ESLint({ cwd: workspaceRoot });
