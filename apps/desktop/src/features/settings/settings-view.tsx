@@ -18,6 +18,8 @@ import { SettingsModelsSection } from "./settings-models-section";
 import { SettingsNotificationsSection } from "./settings-notifications-section";
 import { SettingsProvidersSection } from "./settings-providers-section";
 import { type SettingsSection, sectionTitle, sectionDescription } from "./settings-utils";
+import type { AppLanguage } from "../../i18n/locale";
+import { useTranslation } from "react-i18next";
 
 export type { SettingsSection } from "./settings-utils";
 
@@ -32,6 +34,7 @@ interface SettingsViewProps {
   readonly integratedTerminalShell: string;
   readonly themeMode: "system" | "light" | "dark";
   readonly themePresetId: ThemePresetId;
+  readonly language: AppLanguage;
   readonly enableTransparency: boolean;
   readonly onSetModelSettingsScopeMode: (mode: ModelSettingsScopeMode) => void;
   readonly onSetDefaultModel: (provider: string, modelId: string) => void;
@@ -52,6 +55,7 @@ interface SettingsViewProps {
   readonly onOpenSystemNotificationSettings: () => void;
   readonly onSetThemeMode: (mode: "system" | "light" | "dark") => void;
   readonly onSetThemePresetId: (presetId: ThemePresetId) => void;
+  readonly onSetLanguage: (language: AppLanguage) => void;
   readonly onSetEnableTransparency: (enabled: boolean) => void;
 }
 
@@ -66,6 +70,7 @@ export function SettingsView({
   integratedTerminalShell,
   themeMode,
   themePresetId,
+  language,
   enableTransparency,
   onSetModelSettingsScopeMode,
   onSetDefaultModel,
@@ -84,8 +89,10 @@ export function SettingsView({
   onOpenSystemNotificationSettings,
   onSetThemeMode,
   onSetThemePresetId,
+  onSetLanguage,
   onSetEnableTransparency,
 }: SettingsViewProps) {
+  const { t } = useTranslation();
   if (
     !workspace &&
     section !== "general" &&
@@ -95,9 +102,9 @@ export function SettingsView({
     return (
       <section className="canvas canvas--empty">
         <div className="empty-panel">
-          <div className="session-header__eyebrow">Settings</div>
-          <h1>Select a workspace</h1>
-          <p>Provider and skill settings need a selected workspace.</p>
+          <div className="session-header__eyebrow">{t("navigation.settings")}</div>
+          <h1>{t("settings.selectWorkspace.title")}</h1>
+          <p>{t("settings.selectWorkspace.body")}</p>
         </div>
       </section>
     );
@@ -108,9 +115,9 @@ export function SettingsView({
       <div className="conversation settings-view">
         <header className="view-header">
           <div>
-            <h1 className="view-header__title">{sectionTitle(section)}</h1>
+            <h1 className="view-header__title">{sectionTitle(section, t)}</h1>
             <p className="view-header__body">
-              {sectionDescription(section, workspace?.name ?? "this workspace")}
+              {sectionDescription(section, workspace?.name ?? t("navigation.workspace"), t)}
             </p>
           </div>
         </header>
@@ -135,6 +142,8 @@ export function SettingsView({
               onSetModelSettingsScopeMode={onSetModelSettingsScopeMode}
               onSetIntegratedTerminalShell={onSetIntegratedTerminalShell}
               onToggleSkillCommands={onToggleSkillCommands}
+              language={language}
+              onSetLanguage={onSetLanguage}
             />
           ) : null}
 

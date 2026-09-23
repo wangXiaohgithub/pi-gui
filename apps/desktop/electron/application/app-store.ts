@@ -67,6 +67,8 @@ import {
   type ScheduledTaskRecord,
   type UpdateScheduledTaskInput,
 } from "../../contracts/desktop-state";
+import type { AppLanguage } from "../../contracts/locale";
+import { isAppLanguage } from "../../contracts/locale";
 import {
   applyTimelineEvent,
   appendAssistantDelta,
@@ -156,6 +158,7 @@ type ExtensionUiDialogRequest = Extract<
 export interface DesktopAppStoreOptions {
   readonly userDataDir: string;
   readonly initialWorkspacePaths: readonly string[];
+  readonly initialLanguage?: AppLanguage;
   readonly getWindow?: () => BrowserWindow | null;
   readonly shouldKeepSessionDialogs?: (sessionRef: SessionRef) => boolean;
   readonly driverOptions?: Pick<
@@ -169,7 +172,7 @@ export interface DesktopAppStoreOptions {
 }
 
 export class DesktopAppStore {
-  private state = createEmptyDesktopAppState();
+  private state: DesktopAppState;
   private readonly listeners = new Set<StateListener>();
   /** Monotonic publish counter; emit() stamps every published state with it. */
   private publishRevision = 1;
@@ -255,6 +258,7 @@ export class DesktopAppStore {
   private readonly scheduledTaskOwner: ScheduledTaskOwner;
 
   constructor(options: DesktopAppStoreOptions) {
+    this.state = createEmptyDesktopAppState(options.initialLanguage);
     const catalogFilePath = join(options.userDataDir, "catalogs.json");
     this.catalogStore = new JsonCatalogStore({ catalogFilePath });
     const driverOptions: PiSdkDriverConfig = {
@@ -1319,6 +1323,24 @@ export class DesktopAppStore {
     return this.emit();
   }
 
+  async setLanguage(language: AppLanguage): Promise<DesktopAppState> {
+    await this.initialize();
+    if (!isAppLanguage(language)) {
+      throw new Error(`Unsupported app language: ${String(language)}`);
+    }
+    if (this.state.language === language) {
+      return structuredClone(this.state);
+    }
+    this.state = {
+      ...this.state,
+      language,
+      lastError: undefined,
+      revision: this.state.revision + 1,
+    };
+    await this.persistUiState();
+    return this.emit();
+  }
+
   async setModelSettingsScopeMode(
     modelSettingsScopeMode: ModelSettingsScopeMode,
   ): Promise<DesktopAppState> {
@@ -1902,6 +1924,7 @@ export class DesktopAppStore {
       workspaceOrder: persisted.workspaceOrder ?? [],
       themeMode: persisted.themeMode ?? this.state.themeMode,
       themePresetId: persisted.themePresetId ?? this.state.themePresetId,
+      language: persisted.language ?? this.state.language,
       sidebarCollapsed: persisted.sidebarCollapsed ?? this.state.sidebarCollapsed,
       threadGrouping: persisted.threadGrouping ?? "time",
       enableTransparency: persisted.enableTransparency ?? this.state.enableTransparency,
@@ -3539,6 +3562,7 @@ export class DesktopAppStore {
         : undefined,
       themeMode: this.state.themeMode,
       themePresetId: this.state.themePresetId,
+      language: this.state.language,
       sidebarCollapsed: this.state.sidebarCollapsed || undefined,
       threadGrouping: this.state.threadGrouping,
       enableTransparency: this.state.enableTransparency,

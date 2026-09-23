@@ -28,7 +28,11 @@ function fixture(source, extra = {}) {
     mkdirSync(path.dirname(target), { recursive: true });
     writeFileSync(target, content);
   }
-  return checkRendererBoundary(root);
+  const result = checkRendererBoundary(root);
+  return {
+    ...result,
+    failures: result.failures.map((failure) => failure.replaceAll("\\", "/")),
+  };
 }
 
 for (const source of [

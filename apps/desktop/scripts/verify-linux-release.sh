@@ -2,7 +2,7 @@
 set -euo pipefail
 
 normalize_debian_version() {
-  printf '%s\n' "$1" | tr '-' '~'
+  node "$(dirname "$0")/normalize-debian-version.mjs" "$1"
 }
 
 if [[ "${1:-}" == "--normalize-debian-version" ]]; then

@@ -12,12 +12,14 @@ import type {
   ThreadGrouping,
 } from "../../contracts/desktop-state";
 import { isThemeMode, isThemePresetId, isThreadGrouping } from "../../contracts/desktop-state";
+import type { AppLanguage } from "../../contracts/locale";
+import { isAppLanguage } from "../../contracts/locale";
 import type { ModelSettingsSnapshot } from "@pi-gui/session-driver/runtime-types";
 import { readJsonWithBackup, writeFileAtomicQueued } from "./atomic-file-write";
 import { decodeAttachments } from "./attachment-store";
 
 export interface PersistedUiState {
-  readonly version?: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17;
+  readonly version?: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18;
   readonly selectedWorkspaceId?: string;
   readonly selectedSessionId?: string;
   readonly activeView?: AppView;
@@ -42,6 +44,7 @@ export interface PersistedUiState {
   readonly enableTransparency?: boolean;
   readonly themeMode?: ThemeMode;
   readonly themePresetId?: ThemePresetId;
+  readonly language?: AppLanguage;
   readonly orchestrationChildren?: readonly OrchestrationChildThread[];
 }
 
@@ -112,6 +115,7 @@ export function decodePersistedUiState(parsed: unknown): LegacyPersistedUiState 
       typeof candidate.enableTransparency === "boolean" ? candidate.enableTransparency : undefined,
     themeMode: toThemeMode(candidate.themeMode),
     themePresetId: toThemePresetId(candidate.themePresetId),
+    language: isAppLanguage(candidate.language) ? candidate.language : undefined,
     orchestrationChildren: toPersistedOrchestrationChildren(candidate.orchestrationChildren),
     composerAttachmentsBySession: toObjectArrayRecord(candidate.composerAttachmentsBySession),
     transcripts: toObjectArrayRecord(candidate.transcripts),
@@ -125,7 +129,7 @@ export async function writePersistedUiState(
   const serialized = `${JSON.stringify(
     {
       ...payload,
-      version: 17,
+      version: 18,
     } satisfies PersistedUiState,
     null,
     2,
@@ -169,6 +173,7 @@ function validateUiState(value: unknown): Record<string, unknown> {
       "enableTransparency",
       "themeMode",
       "themePresetId",
+      "language",
       "orchestrationChildren",
       "composerAttachmentsBySession",
       "transcripts",
@@ -212,6 +217,7 @@ function validateUiState(value: unknown): Record<string, unknown> {
   optional(root, "threadGrouping", isThreadGrouping);
   optional(root, "themeMode", isThemeMode);
   optional(root, "themePresetId", isThemePresetId);
+  optional(root, "language", isAppLanguage);
   optional(root, "modelSettingsScopeMode", (v) => v === "per-repo" || v === "app-global");
   if (root.notificationPreferences !== undefined) {
     const preferences =
@@ -448,7 +454,7 @@ function toAppView(value: unknown): AppView | undefined {
 }
 
 function toPersistedVersion(value: unknown): NonNullable<PersistedUiState["version"]> | undefined {
-  return typeof value === "number" && Number.isInteger(value) && value >= 2 && value <= 17
+  return typeof value === "number" && Number.isInteger(value) && value >= 2 && value <= 18
     ? (value as NonNullable<PersistedUiState["version"]>)
     : undefined;
 }

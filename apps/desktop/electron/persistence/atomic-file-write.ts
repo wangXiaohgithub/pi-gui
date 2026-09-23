@@ -141,12 +141,18 @@ async function promoteToTarget(
 }
 
 async function renameReplace(src: string, dest: string): Promise<void> {
-  try {
-    await rename(src, dest);
-    return;
-  } catch (error) {
-    if (!isReplaceRenameError(error)) {
-      throw error;
+  const maxAttempts = process.platform === "win32" ? 20 : 1;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await rename(src, dest);
+      return;
+    } catch (error) {
+      if (!isReplaceRenameError(error)) {
+        throw error;
+      }
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, attempt));
+      }
     }
   }
 

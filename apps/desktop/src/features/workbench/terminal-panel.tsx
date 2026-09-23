@@ -19,6 +19,7 @@ import type {
   TerminalSize,
 } from "../../../contracts/ipc";
 import { appendTerminalReplay } from "../../../contracts/terminal-model";
+import { useTranslation } from "react-i18next";
 
 const MIN_TERMINAL_HEIGHT = 220;
 const DEFAULT_TERMINAL_HEIGHT = 340;
@@ -42,6 +43,7 @@ export function TerminalPanel({
   onToggleTakeover,
   onHide,
 }: TerminalPanelProps) {
+  const { t } = useTranslation();
   const api = window.piApp;
   const panelRef = useRef<HTMLElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -344,7 +346,11 @@ export function TerminalPanel({
     >
       <div className="terminal-panel__resize-handle" onMouseDown={startResize} />
       <div className="terminal-panel__toolbar">
-        <div className="terminal-panel__tabs" role="tablist" aria-label="Terminal sessions">
+        <div
+          className="terminal-panel__tabs"
+          role="tablist"
+          aria-label={t("workbench.terminalSessions")}
+        >
           {(panel?.sessions ?? []).map((session) => (
             <div
               key={session.id}
@@ -387,8 +393,8 @@ export function TerminalPanel({
           <button
             type="button"
             className="icon-button terminal-panel__action"
-            title="New terminal"
-            aria-label="New terminal"
+            title={t("workbench.newTerminal")}
+            aria-label={t("workbench.newTerminal")}
             onClick={() =>
               void createTerminal().catch((error: unknown) => {
                 setError(error instanceof Error ? error.message : String(error));
@@ -400,8 +406,8 @@ export function TerminalPanel({
           <button
             type="button"
             className="icon-button terminal-panel__action"
-            title="Restart terminal"
-            aria-label="Restart terminal"
+            title={t("workbench.restartTerminal")}
+            aria-label={t("workbench.restartTerminal")}
             onClick={() =>
               void restartTerminal().catch((error: unknown) => {
                 setError(error instanceof Error ? error.message : String(error));
@@ -413,8 +419,10 @@ export function TerminalPanel({
           <button
             type="button"
             className="icon-button terminal-panel__action"
-            title={isTakeover ? "Restore terminal" : "Maximize terminal"}
-            aria-label={isTakeover ? "Restore terminal" : "Maximize terminal"}
+            title={isTakeover ? t("workbench.restoreTerminal") : t("workbench.maximizeTerminal")}
+            aria-label={
+              isTakeover ? t("workbench.restoreTerminal") : t("workbench.maximizeTerminal")
+            }
             onClick={onToggleTakeover}
           >
             {isTakeover ? <MinimizeIcon /> : <MaximizeIcon />}
@@ -422,8 +430,8 @@ export function TerminalPanel({
           <button
             type="button"
             className="icon-button terminal-panel__action"
-            title="Hide terminal"
-            aria-label="Hide terminal"
+            title={t("workbench.hideTerminal")}
+            aria-label={t("workbench.hideTerminal")}
             onClick={onHide}
           >
             <CloseIcon />

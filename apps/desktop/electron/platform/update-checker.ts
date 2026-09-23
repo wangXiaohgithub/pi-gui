@@ -1,4 +1,6 @@
 import { app, net, Notification, shell } from "electron";
+import type { AppLanguage } from "../../contracts/locale";
+import { nativeText } from "../../contracts/native-copy";
 
 const RELEASES_URL = "https://api.github.com/repos/minghinmatthewlam/pi-gui/releases?per_page=1";
 const RELEASES_PAGE = "https://github.com/minghinmatthewlam/pi-gui/releases";
@@ -30,13 +32,14 @@ export function showUpdateNotification(
   currentVersion: string,
   latestVersion: string,
   releaseUrl: string,
+  language: AppLanguage = "en",
 ): void {
   if (!Notification.isSupported()) {
     return;
   }
   const notification = new Notification({
-    title: "pi-gui Release Available",
-    body: `Version ${latestVersion} is available (you have ${currentVersion}). Click to view the release.`,
+    title: nativeText(language, "updateNotificationTitle"),
+    body: nativeText(language, "updateNotificationBody", { currentVersion, latestVersion }),
   });
   notification.on("click", () => {
     void openReleasesPage(releaseUrl).catch((error: unknown) => {
@@ -115,7 +118,7 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
   };
 }
 
-export function initUpdateChecker(): () => void {
+export function initUpdateChecker(getLanguage: () => AppLanguage = () => "en"): () => void {
   // Dedupe notifications per version so a still-unactioned update doesn't
   // re-notify on every 4-hour poll.
   let lastNotifiedVersion: string | undefined;
@@ -127,7 +130,12 @@ export function initUpdateChecker(): () => void {
     }
     if (result.status === "update-available" && result.latestVersion !== lastNotifiedVersion) {
       lastNotifiedVersion = result.latestVersion;
-      showUpdateNotification(result.currentVersion, result.latestVersion, result.releaseUrl);
+      showUpdateNotification(
+        result.currentVersion,
+        result.latestVersion,
+        result.releaseUrl,
+        getLanguage(),
+      );
     }
   };
 

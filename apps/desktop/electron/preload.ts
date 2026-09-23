@@ -43,6 +43,7 @@ import type {
   CreateScheduledTaskInput,
   UpdateScheduledTaskInput,
 } from "../contracts/desktop-state";
+import type { AppLanguage } from "../contracts/locale";
 
 const devReloadMarkersEnabled = process.env.PI_APP_DEV_RELOAD_MARKERS === "1";
 
@@ -322,6 +323,8 @@ contextBridge.exposeInMainWorld("piApp", {
     ipcRenderer.invoke(desktopIpc.setEnableTransparency, enabled) as Promise<DesktopAppState>,
   setThemePresetId: (presetId: ThemePresetId) =>
     ipcRenderer.invoke(desktopIpc.setThemePresetId, presetId) as Promise<DesktopAppState>,
+  setLanguage: (language: AppLanguage) =>
+    ipcRenderer.invoke(desktopIpc.setLanguage, language) as Promise<DesktopAppState>,
   ensureTerminalPanel: (
     workspaceId: string,
     terminalScopeId: string,

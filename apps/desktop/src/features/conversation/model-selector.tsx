@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { RuntimeSnapshot } from "@pi-gui/session-driver/runtime-types";
 import {
   buildModelOptions,
@@ -38,6 +39,7 @@ export function ModelSelector({
   onSetModel,
   onSetThinking,
 }: ModelSelectorProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState<OpenDropdown>("none");
   const [modelFilter, setModelFilter] = useState("");
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -117,7 +119,7 @@ export function ModelSelector({
               <div className="model-selector__filter">
                 <input
                   className="model-selector__filter-input"
-                  placeholder="Filter models..."
+                  placeholder={t("composer.filterModels")}
                   value={modelFilter}
                   onChange={(e) => setModelFilter(e.target.value)}
                   autoFocus
@@ -142,7 +144,7 @@ export function ModelSelector({
                       >
                         <span className="model-selector__item-label">{option.label}</span>
                         {isActive ? (
-                          <span className="model-selector__item-meta">active</span>
+                          <span className="model-selector__item-meta">{t("composer.active")}</span>
                         ) : null}
                       </button>
                     );
@@ -152,10 +154,10 @@ export function ModelSelector({
               {groupedModels.length === 0 ? (
                 <>
                   <div className="model-selector__group-title">
-                    {noMatchingModels ? "No matching models" : emptyModelTitle}
+                    {noMatchingModels ? t("composer.noMatchingModels") : emptyModelTitle}
                   </div>
                   {noMatchingModels ? (
-                    <div className="model-selector__empty">Try a different filter.</div>
+                    <div className="model-selector__empty">{t("composer.tryDifferentFilter")}</div>
                   ) : null}
                 </>
               ) : null}
@@ -178,7 +180,7 @@ export function ModelSelector({
               className={`model-selector__dropdown ${dropdownPlacement === "below" ? "model-selector__dropdown--below" : ""}`}
               onWheel={(event) => event.stopPropagation()}
             >
-              <div className="model-selector__group-title">Thinking Level</div>
+              <div className="model-selector__group-title">{t("composer.thinkingLevel")}</div>
               {THINKING_OPTIONS.map((option) => {
                 const isActive = option.value === thinkingLevel;
                 return (

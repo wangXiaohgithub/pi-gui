@@ -8,6 +8,7 @@ import { sessionKey } from "@pi-gui/session-driver";
 import type { SessionDriverEvent, SessionRef } from "@pi-gui/session-driver";
 import { getSelectedSession } from "../../contracts/desktop-state";
 import { isSessionActivelyViewed } from "../conversation/session-visibility";
+import { nativeText } from "../../contracts/native-copy";
 
 const MAX_COMPLETED_RUN_KEYS = 500;
 
@@ -144,7 +145,7 @@ export class NotificationManager {
       await this.showNotification(
         event.sessionRef,
         event.snapshot.title,
-        "Agent finished responding",
+        nativeText(this.latestState?.language ?? "en", "agentFinished"),
       );
       return;
     }
@@ -162,7 +163,7 @@ export class NotificationManager {
       await this.showNotification(
         event.sessionRef,
         this.titleForSession(event.sessionRef),
-        hostUiBody(event),
+        hostUiBody(event, this.latestState?.language ?? "en"),
       );
     }
   }
@@ -392,7 +393,7 @@ export class NotificationManager {
   }
 
   private titleForSession(sessionRef: SessionRef): string {
-    return this.sessionFromLatestState(sessionRef)?.title ?? "pi session";
+    return this.sessionFromLatestState(sessionRef)?.title ?? "pi";
   }
 }
 
@@ -404,7 +405,10 @@ function requiresAttention(event: Extract<SessionDriverEvent, { type: "hostUiReq
   );
 }
 
-function hostUiBody(event: Extract<SessionDriverEvent, { type: "hostUiRequest" }>): string {
+function hostUiBody(
+  event: Extract<SessionDriverEvent, { type: "hostUiRequest" }>,
+  language: DesktopAppState["language"],
+): string {
   if (
     event.request.kind === "confirm" ||
     event.request.kind === "input" ||
@@ -412,7 +416,7 @@ function hostUiBody(event: Extract<SessionDriverEvent, { type: "hostUiRequest" }
   ) {
     return event.request.title;
   }
-  return "Needs your input";
+  return nativeText(language, "needsInput");
 }
 
 function sameSessionRef(left: SessionRef | undefined, right: SessionRef | undefined): boolean {

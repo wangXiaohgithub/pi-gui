@@ -74,8 +74,11 @@ import { deriveWorkspaceContext } from "./workspace-context";
 import { useTreeForkModals } from "../features/conversation/hooks/use-tree-fork-modals";
 import { useComposerDraftSync } from "../features/conversation/hooks/use-composer-draft-sync";
 import { useSessionComposer } from "../features/conversation/hooks/use-session-composer";
+import { i18n } from "../i18n";
+import { useTranslation } from "react-i18next";
 
 export default function App() {
+  const { t } = useTranslation();
   const desktop = useDesktopAppState();
   const snapshot = desktop.snapshot;
   const setSnapshot = desktop.setSnapshot;
@@ -152,6 +155,16 @@ export default function App() {
     }
   }, [snapshot?.enableTransparency]);
 
+  useEffect(() => {
+    if (!snapshot?.language) {
+      return;
+    }
+    document.documentElement.lang = snapshot.language;
+    void i18n.changeLanguage(snapshot.language).catch((error: unknown) => {
+      console.error("[renderer] changeLanguage failed", error);
+    });
+  }, [snapshot?.language]);
+
   const {
     activeWorktrees,
     linkedWorktreeByWorkspaceId,
@@ -185,10 +198,14 @@ export default function App() {
     (selectedDefaultEnabled ? selectedModelRuntime?.settings.defaultModelId : undefined);
   const resolvedSessionThinkingLevel =
     selectedSession?.config?.thinkingLevel ?? selectedModelRuntime?.settings.defaultThinkingLevel;
-  const selectedSessionModelOnboarding = deriveModelOnboardingState(selectedModelRuntime, {
-    provider: resolvedSessionProvider,
-    modelId: resolvedSessionModelId,
-  });
+  const selectedSessionModelOnboarding = deriveModelOnboardingState(
+    selectedModelRuntime,
+    {
+      provider: resolvedSessionProvider,
+      modelId: resolvedSessionModelId,
+    },
+    t,
+  );
   const queuedComposerMessages = snapshot?.queuedComposerMessages ?? [];
   const editingQueuedMessageId = snapshot?.editingQueuedMessageId;
   const runningLabel = useRunningLabel(
@@ -984,7 +1001,7 @@ export default function App() {
 
         {snapshot.startupDiagnostics.length > 0 ? (
           <div className="startup-diagnostics" role="status" data-testid="startup-diagnostics">
-            <strong>Some saved workspaces could not be refreshed.</strong>
+            <strong>{t("shell.startupDiagnostics")}</strong>
             <span>
               {snapshot.startupDiagnostics
                 .map((diagnostic) => {
@@ -992,7 +1009,9 @@ export default function App() {
                     ?.split(/[\\/]/)
                     .filter(Boolean)
                     .at(-1);
-                  return workspaceName ? `${workspaceName} is unavailable.` : diagnostic.message;
+                  return workspaceName
+                    ? t("shell.workspaceUnavailable", { workspace: workspaceName })
+                    : diagnostic.message;
                 })
                 .join(" ")}
             </span>
@@ -1073,9 +1092,9 @@ export default function App() {
               ) : (
                 <section className="canvas canvas--empty">
                   <div className="empty-panel">
-                    <div className="session-header__eyebrow">Workspace</div>
-                    <h1>Open a folder to start</h1>
-                    <p>Add a project folder before creating a new thread.</p>
+                    <div className="session-header__eyebrow">{t("workspace.title")}</div>
+                    <h1>{t("workspace.openToStart")}</h1>
+                    <p>{t("workspace.addBeforeThread")}</p>
                   </div>
                 </section>
               )
@@ -1086,8 +1105,8 @@ export default function App() {
                     <div className="chat-header">
                       <div className="chat-header__eyebrow">
                         {selectedWorkspace.kind === "worktree"
-                          ? `${rootWorkspace?.name ?? selectedWorkspace.name} · ${selectedWorktree?.name ?? selectedWorkspace.branchName ?? "Worktree"}`
-                          : `${selectedWorkspace.name} · Local`}
+                          ? `${rootWorkspace?.name ?? selectedWorkspace.name} · ${selectedWorktree?.name ?? selectedWorkspace.branchName ?? t("sidebar.worktree")}`
+                          : `${selectedWorkspace.name} · ${t("sidebar.local")}`}
                       </div>
                       <div className="chat-header__row">
                         <h1 className="chat-header__title">{displayedSessionTitle}</h1>
@@ -1100,7 +1119,7 @@ export default function App() {
                           <button
                             aria-haspopup="menu"
                             aria-expanded={threadMenuOpen}
-                            aria-label="Thread actions"
+                            aria-label={t("thread.actions")}
                             className="icon-button"
                             data-testid="thread-header-menu"
                             type="button"
@@ -1156,7 +1175,7 @@ export default function App() {
                         <button
                           type="button"
                           className="schema-skew-notice__dismiss"
-                          aria-label="Dismiss notice"
+                          aria-label={t("shell.dismissNotice")}
                           onClick={() => dismissSchemaSkewNotice(selectedSessionKey)}
                         >
                           Dismiss
@@ -1277,11 +1296,9 @@ export default function App() {
             ) : selectedWorkspace ? (
               <section className="canvas canvas--empty">
                 <div className="empty-panel">
-                  <div className="session-header__eyebrow">Workspace</div>
+                  <div className="session-header__eyebrow">{t("workspace.title")}</div>
                   <h1>{selectedWorkspace.name}</h1>
-                  <p>
-                    Create a thread for this folder, then jump between sessions from the sidebar.
-                  </p>
+                  <p>{t("workspace.createThreadHint")}</p>
                   <div className="empty-panel__actions">
                     <button
                       className="button button--primary"
@@ -1292,7 +1309,7 @@ export default function App() {
                         )
                       }
                     >
-                      New thread
+                      {t("navigation.newThread")}
                     </button>
                   </div>
                 </div>
@@ -1300,12 +1317,9 @@ export default function App() {
             ) : (
               <section className="canvas canvas--empty">
                 <div className="empty-panel">
-                  <div className="session-header__eyebrow">Workspace</div>
-                  <h1>Open a folder to start</h1>
-                  <p>
-                    Add project folders, group sessions under them, and jump between threads from
-                    the sidebar.
-                  </p>
+                  <div className="session-header__eyebrow">{t("workspace.title")}</div>
+                  <h1>{t("workspace.openToStart")}</h1>
+                  <p>{t("workspace.noWorkspaceHint")}</p>
                 </div>
               </section>
             )}

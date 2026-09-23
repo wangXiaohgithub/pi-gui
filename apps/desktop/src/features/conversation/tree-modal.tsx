@@ -6,6 +6,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
+import { useTranslation } from "react-i18next";
 import type {
   NavigateSessionTreeOptions,
   SessionTreeNodeKind,
@@ -59,6 +60,7 @@ export function TreeModal({
   onClose,
   onNavigate,
 }: TreeModalProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState<"select" | "summary">("select");
   const [search, setSearch] = useState("");
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
@@ -307,13 +309,13 @@ export function TreeModal({
       >
         <div className="tree-modal__header">
           <div>
-            <div className="tree-modal__eyebrow">Session tree</div>
+            <div className="tree-modal__eyebrow">{t("dialogs.sessionTree")}</div>
             <h2 className="tree-modal__title">
-              {step === "summary" ? "Switch branch" : "Browse branches"}
+              {t(step === "summary" ? "dialogs.switchBranch" : "dialogs.browseBranches")}
             </h2>
           </div>
           <button
-            aria-label="Close tree modal"
+            aria-label={t("dialogs.close")}
             className="tree-modal__close"
             disabled={submitting}
             type="button"
@@ -337,7 +339,7 @@ export function TreeModal({
 
         {loading ? (
           <div className="tree-modal__loading" data-testid="tree-modal-loading">
-            Loading session tree…
+            {t("dialogs.loadingTree")}
           </div>
         ) : null}
 
@@ -346,10 +348,10 @@ export function TreeModal({
             <div className="tree-modal__search-row">
               <input
                 autoFocus
-                aria-label="Search session tree"
+                aria-label={t("dialogs.searchTree")}
                 className="tree-modal__search"
                 data-testid="tree-modal-search"
-                placeholder="Search visible tree entries"
+                placeholder={t("dialogs.searchTreePlaceholder")}
                 ref={searchRef}
                 value={search}
                 onChange={(event) => {
@@ -359,16 +361,16 @@ export function TreeModal({
               />
               <div className="tree-modal__meta">
                 {searching
-                  ? "Search expands matching branches."
+                  ? t("dialogs.searchTreeHint")
                   : currentLeafId
-                    ? "Tree opens at the most recent entries."
-                    : "Select a node to branch from it."}
+                    ? t("dialogs.treeCurrentHint")
+                    : t("dialogs.selectNodeHint")}
               </div>
             </div>
 
             <div className="tree-modal__list" data-testid="tree-modal-list" ref={setListElement}>
               {displayRows.length === 0 ? (
-                <div className="tree-modal__empty">No matching nodes.</div>
+                <div className="tree-modal__empty">{t("dialogs.noMatchingNodes")}</div>
               ) : (
                 displayRows.map((row) => {
                   const isSelected = row.node.id === selectedId;
@@ -379,7 +381,9 @@ export function TreeModal({
                       key={row.node.id}
                     >
                       <button
-                        aria-label={row.expanded ? "Collapse branch" : "Expand branch"}
+                        aria-label={t(
+                          row.expanded ? "dialogs.collapseBranch" : "dialogs.expandBranch",
+                        )}
                         className={`tree-row__toggle ${row.hasChildren ? "" : "tree-row__toggle--hidden"}`}
                         disabled={searching || !row.hasChildren}
                         tabIndex={-1}
@@ -423,13 +427,10 @@ export function TreeModal({
             </div>
 
             <div className="tree-modal__footer">
-              <div className="tree-modal__hint">
-                Selecting a user prompt reopens it in the composer. Selecting any other node jumps
-                directly there.
-              </div>
+              <div className="tree-modal__hint">{t("dialogs.treeSelectionHint")}</div>
               <div className="tree-modal__actions">
                 <button className="button button--secondary" type="button" onClick={onClose}>
-                  Cancel
+                  {t("dialogs.cancel")}
                 </button>
                 <button
                   className="button button--primary"
@@ -437,7 +438,7 @@ export function TreeModal({
                   type="button"
                   onClick={() => setStep("summary")}
                 >
-                  {currentLeafSelected ? "Already here" : "Continue"}
+                  {t(currentLeafSelected ? "dialogs.alreadyHere" : "dialogs.continue")}
                 </button>
               </div>
             </div>
@@ -446,19 +447,16 @@ export function TreeModal({
 
         {!loading && tree && step === "summary" ? (
           <div className="tree-modal__summary-step" data-testid="tree-summary-step">
-            <div className="tree-modal__summary-copy">
-              You&apos;re leaving the current branch. Choose whether pi should summarize the
-              abandoned path before switching.
-            </div>
+            <div className="tree-modal__summary-copy">{t("dialogs.summaryChoice")}</div>
             <div className="tree-summary-options">
               <button
                 className={`tree-summary-option ${summaryMode === "none" ? "tree-summary-option--selected" : ""}`}
                 type="button"
                 onClick={() => setSummaryMode("none")}
               >
-                <span className="tree-summary-option__title">No summary</span>
+                <span className="tree-summary-option__title">{t("dialogs.noSummary")}</span>
                 <span className="tree-summary-option__description">
-                  Jump immediately with no branch summary.
+                  {t("dialogs.noSummaryDescription")}
                 </span>
               </button>
               <button
@@ -466,9 +464,9 @@ export function TreeModal({
                 type="button"
                 onClick={() => setSummaryMode("summary")}
               >
-                <span className="tree-summary-option__title">Summarize</span>
+                <span className="tree-summary-option__title">{t("dialogs.summarize")}</span>
                 <span className="tree-summary-option__description">
-                  Generate a branch summary before switching.
+                  {t("dialogs.summarizeDescription")}
                 </span>
               </button>
               <button
@@ -476,9 +474,9 @@ export function TreeModal({
                 type="button"
                 onClick={() => setSummaryMode("custom")}
               >
-                <span className="tree-summary-option__title">Summarize with custom prompt</span>
+                <span className="tree-summary-option__title">{t("dialogs.customSummary")}</span>
                 <span className="tree-summary-option__description">
-                  Provide extra instructions for the summary.
+                  {t("dialogs.customSummaryDescription")}
                 </span>
               </button>
             </div>
@@ -486,9 +484,9 @@ export function TreeModal({
             {summaryMode === "custom" ? (
               <textarea
                 autoFocus
-                aria-label="Custom summary instructions"
+                aria-label={t("dialogs.customSummaryInstructions")}
                 className="tree-modal__custom-instructions"
-                placeholder="Focus the summary on decisions, changed files, and unresolved risks."
+                placeholder={t("dialogs.customSummaryPlaceholder")}
                 ref={customInstructionsRef}
                 value={customInstructions}
                 onChange={(event) => setCustomInstructions(event.target.value)}
@@ -498,10 +496,10 @@ export function TreeModal({
             <div className="tree-modal__footer">
               <div className="tree-modal__hint">
                 {submitting
-                  ? "Switching branches…"
+                  ? t("dialogs.switchingBranches")
                   : summaryMode === "none"
-                    ? "The current branch will be left as-is."
-                    : "The summary will be attached to the branch you switch to."}
+                    ? t("dialogs.summaryNoneHint")
+                    : t("dialogs.summarySavedHint")}
               </div>
               <div className="tree-modal__actions">
                 <button
@@ -510,7 +508,7 @@ export function TreeModal({
                   type="button"
                   onClick={() => setStep("select")}
                 >
-                  Back
+                  {t("dialogs.back")}
                 </button>
                 <button
                   className="button button--primary"
@@ -523,7 +521,7 @@ export function TreeModal({
                   type="button"
                   onClick={handleSubmit}
                 >
-                  {submitting ? "Switching…" : "Switch branch"}
+                  {t(submitting ? "dialogs.switching" : "dialogs.switchBranch")}
                 </button>
               </div>
             </div>

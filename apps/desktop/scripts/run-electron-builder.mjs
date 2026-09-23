@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -57,11 +57,56 @@ function spawnElectronBuilder(electronBuilderArgs) {
 }
 
 export async function runElectronBuilder(electronBuilderArgs) {
-  const result = await withGithubDownloadRetry(() => spawnElectronBuilder(electronBuilderArgs));
+  let result = await withGithubDownloadRetry(() => spawnElectronBuilder(electronBuilderArgs));
+  if (!result.ok && materializeWinCodeSignCache(result.output)) {
+    result = await withGithubDownloadRetry(() => spawnElectronBuilder(electronBuilderArgs));
+  }
   if (result.error) {
     throw result.error;
   }
   return result.status ?? 1;
+}
+
+function materializeWinCodeSignCache(output) {
+  if (process.platform !== "win32" || !output.includes("Cannot create symbolic link")) {
+    return false;
+  }
+
+  const version = output.match(/winCodeSign-(\d+(?:\.\d+)+)\.7z/)?.[1];
+  if (!version) {
+    throw new Error("winCodeSign extraction failed, but its archive version was not reported.");
+  }
+
+  const electronBuilderCache =
+    process.env.ELECTRON_BUILDER_CACHE ?? path.join(cacheRoot, "electron-builder");
+  const archiveDirectory = path.join(electronBuilderCache, "winCodeSign");
+  const archive = readdirSync(archiveDirectory)
+    .filter((name) => name.endsWith(".7z"))
+    .map((name) => path.join(archiveDirectory, name))
+    .sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs)[0];
+  if (!archive) {
+    throw new Error(
+      `winCodeSign ${version} extraction failed and no downloaded archive was found.`,
+    );
+  }
+
+  const destination = path.join(archiveDirectory, `winCodeSign-${version}`);
+  const sevenZip = path.join(repoDir, "node_modules", "7zip-bin", "win", "x64", "7za.exe");
+  const extraction = spawnSync(sevenZip, ["x", archive, "-bd", `-o${destination}`], {
+    encoding: "utf8",
+  });
+  const resourceEditor = path.join(destination, "rcedit-x64.exe");
+  const extractionOutput = `${extraction.stdout ?? ""}\n${extraction.stderr ?? ""}`;
+  if (!existsSync(resourceEditor)) {
+    throw new Error(
+      `Failed to materialize winCodeSign ${version} without symbolic links (status ${extraction.status ?? "unknown"}): ${extractionOutput}`,
+    );
+  }
+
+  process.stderr.write(
+    `Materialized winCodeSign ${version} in ${destination}; unavailable macOS links are not needed for Windows packaging.\n`,
+  );
+  return true;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

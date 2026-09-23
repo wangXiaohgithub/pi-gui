@@ -6,6 +6,7 @@ import type {
 } from "../../../contracts/desktop-state";
 import { extensionScopeLabel, extensionSourceSummary } from "./extension-display";
 import { RefreshIcon } from "../../ui/icons";
+import { useTranslation } from "react-i18next";
 
 interface ExtensionsViewProps {
   readonly workspace?: WorkspaceRecord;
@@ -24,6 +25,7 @@ export function ExtensionsView({
   onOpenExtensionFolder,
   onToggleExtension,
 }: ExtensionsViewProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [selectedExtensionPath, setSelectedExtensionPath] = useState<string | undefined>();
   const extensions = runtime?.extensions ?? [];
@@ -69,8 +71,8 @@ export function ExtensionsView({
     return (
       <section className="canvas canvas--empty">
         <div className="empty-panel">
-          <div className="session-header__eyebrow">Extensions</div>
-          <h1>Select a workspace</h1>
+          <div className="session-header__eyebrow">{t("extensions.title")}</div>
+          <h1>{t("settings.selectWorkspace.title")}</h1>
           <p>
             Extensions are discovered from the selected workspace plus your user-level extension
             directories.
@@ -85,24 +87,22 @@ export function ExtensionsView({
       <div className="conversation skills-view">
         <header className="view-header">
           <div>
-            <h1 className="view-header__title">Extensions</h1>
-            <p className="view-header__body">
-              Inspect and manage first-class runtime extensions for this workspace.
-            </p>
+            <h1 className="view-header__title">{t("extensions.title")}</h1>
+            <p className="view-header__body">{t("extensions.description")}</p>
           </div>
           <div className="view-header__actions">
             <button className="button button--secondary" type="button" onClick={onRefresh}>
               <RefreshIcon />
-              <span>Refresh</span>
+              <span>{t("common.refresh")}</span>
             </button>
           </div>
         </header>
 
         <div className="skills-toolbar">
           <input
-            aria-label="Search extensions"
+            aria-label={t("extensions.search")}
             className="skills-search"
-            placeholder="Search extensions"
+            placeholder={t("extensions.search")}
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
@@ -113,7 +113,7 @@ export function ExtensionsView({
         <div className="skills-layout">
           <div className="skills-grid" data-testid="extensions-list">
             {filteredExtensions.length === 0 ? (
-              <ExtensionsEmptyState message="Refresh runtime discovery to load workspace and user-level extensions." />
+              <ExtensionsEmptyState message={t("extensions.emptyWorkspace")} />
             ) : (
               filteredExtensions.map((extension) => (
                 <button
@@ -129,7 +129,7 @@ export function ExtensionsView({
                     <span
                       className={`skill-card__badge ${extension.enabled ? "skill-card__badge--enabled" : ""}`}
                     >
-                      {extension.enabled ? "Enabled" : "Disabled"}
+                      {extension.enabled ? t("common.enabled") : t("common.disabled")}
                     </span>
                   </span>
                   <span className="skill-card__description">
@@ -163,16 +163,22 @@ export function ExtensionsView({
                   <span
                     className={`skill-detail__status ${selectedExtension.enabled ? "skill-detail__status--enabled" : ""}`}
                   >
-                    {selectedExtension.enabled ? "Enabled" : "Disabled"}
+                    {selectedExtension.enabled ? t("common.enabled") : t("common.disabled")}
                   </span>
                 </div>
                 <div className="skill-detail__meta-list">
-                  <DetailItem label="Scope" value={extensionScopeLabel(selectedExtension)} />
-                  <DetailItem label="Origin" value={selectedExtension.sourceInfo.origin} />
-                  <DetailItem label="Path" value={selectedExtension.path} mono />
+                  <DetailItem
+                    label={t("extensions.scope")}
+                    value={extensionScopeLabel(selectedExtension)}
+                  />
+                  <DetailItem
+                    label={t("extensions.origin")}
+                    value={selectedExtension.sourceInfo.origin}
+                  />
+                  <DetailItem label={t("extensions.path")} value={selectedExtension.path} mono />
                   {selectedExtension.sourceInfo.baseDir ? (
                     <DetailItem
-                      label="Base dir"
+                      label={t("extensions.baseDir")}
                       value={selectedExtension.sourceInfo.baseDir}
                       mono
                     />
@@ -185,7 +191,7 @@ export function ExtensionsView({
                       type="button"
                       onClick={() => onOpenExtensionFolder(selectedExtension.path)}
                     >
-                      Open folder
+                      {t("sidebar.openFolder")}
                     </button>
                     <button
                       className="button button--secondary"
@@ -194,13 +200,13 @@ export function ExtensionsView({
                         onToggleExtension(selectedExtension.path, !selectedExtension.enabled)
                       }
                     >
-                      {selectedExtension.enabled ? "Disable" : "Enable"}
+                      {selectedExtension.enabled ? t("common.disable") : t("common.enable")}
                     </button>
                   </div>
                 ) : null}
 
                 <ExtensionContributionSection
-                  title="Commands"
+                  title={t("extensions.commands")}
                   items={selectedExtension.commands}
                   emptyLabel="No commands contributed."
                 />
@@ -209,24 +215,24 @@ export function ExtensionsView({
                   compatibilityRecords={selectedCompatibilityRecords}
                 />
                 <ExtensionContributionSection
-                  title="Tools"
+                  title={t("extensions.tools")}
                   items={selectedExtension.tools}
                   emptyLabel="No tools contributed."
                 />
                 <ExtensionContributionSection
-                  title="Flags"
+                  title={t("extensions.flags")}
                   items={selectedExtension.flags}
                   emptyLabel="No flags contributed."
                 />
                 <ExtensionContributionSection
-                  title="Shortcuts"
+                  title={t("extensions.shortcuts")}
                   items={selectedExtension.shortcuts}
                   emptyLabel="No shortcuts contributed."
                 />
                 <ExtensionDiagnostics diagnostics={selectedExtension.diagnostics} />
               </>
             ) : (
-              <ExtensionsEmptyState message="Refresh runtime discovery to inspect extension metadata and diagnostics." />
+              <ExtensionsEmptyState message={t("extensions.emptyDetails")} />
             )}
           </div>
         </div>
@@ -290,10 +296,11 @@ function ExtensionDiagnostics({
 }: {
   readonly diagnostics: RuntimeExtensionRecord["diagnostics"];
 }) {
+  const { t } = useTranslation();
   return (
     <div className="skill-detail__meta-list">
       <div>
-        <div className="skill-detail__meta-label">Diagnostics</div>
+        <div className="skill-detail__meta-label">{t("extensions.diagnostics")}</div>
         {diagnostics.length > 0 ? (
           <div className="extension-detail__diagnostics">
             {diagnostics.map((diagnostic, index) => (
@@ -309,7 +316,7 @@ function ExtensionDiagnostics({
             ))}
           </div>
         ) : (
-          <div className="skill-detail__description">No diagnostics reported.</div>
+          <div className="skill-detail__description">{t("extensions.noDiagnostics")}</div>
         )}
       </div>
     </div>
@@ -323,6 +330,7 @@ function ExtensionCompatibilitySection({
   readonly commands: readonly string[];
   readonly compatibilityRecords: readonly ExtensionCommandCompatibilityRecord[];
 }) {
+  const { t } = useTranslation();
   const supported = compatibilityRecords.filter((record) => record.status === "supported");
   const terminalOnly = compatibilityRecords.filter((record) => record.status === "terminal-only");
   const unknown = commands.filter((commandName) =>
@@ -335,10 +343,8 @@ function ExtensionCompatibilitySection({
   return (
     <div className="skill-detail__meta-list">
       <div>
-        <div className="skill-detail__meta-label">Command compatibility</div>
-        <div className="skill-detail__description">
-          Learned from real GUI execution. Unlisted commands remain unknown until exercised.
-        </div>
+        <div className="skill-detail__meta-label">{t("extensions.commandCompatibility")}</div>
+        <div className="skill-detail__description">{t("extensions.compatibilityDescription")}</div>
         <div className="extension-detail__tokens">
           {supported.map((record) => (
             <span className="slash-menu__skill-badge" key={`supported:${record.commandName}`}>
@@ -365,9 +371,10 @@ function ExtensionCompatibilitySection({
 }
 
 function ExtensionsEmptyState({ message }: { readonly message: string }) {
+  const { t } = useTranslation();
   return (
     <div className="empty-state">
-      <h2>No extensions found</h2>
+      <h2>{t("extensions.empty")}</h2>
       <p>{message}</p>
     </div>
   );

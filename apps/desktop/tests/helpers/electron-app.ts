@@ -358,6 +358,7 @@ function buildDesktopLaunchEnv(
     PI_APP_USER_DATA_DIR: userDataDir,
     PI_APP_INITIAL_WORKSPACES: (options.initialWorkspaces ?? []).join(delimiter),
     PI_APP_TEST_MODE: options.testMode ?? process.env.PI_APP_TEST_MODE ?? "foreground",
+    PI_APP_TEST_LOCALE: "en-US",
     PI_CODING_AGENT_DIR: agentDir,
     ...(options.notificationLogPath
       ? { PI_APP_NOTIFICATION_LOG_PATH: options.notificationLogPath }

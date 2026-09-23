@@ -1,4 +1,5 @@
 import { useEffect, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
+import { useTranslation } from "react-i18next";
 import type { RuntimeCommandRecord, RuntimeSnapshot } from "@pi-gui/session-driver/runtime-types";
 import type {
   DesktopAppState,
@@ -107,6 +108,7 @@ export interface SlashMenuState {
 }
 
 export function useSlashMenu(params: UseSlashMenuParams): SlashMenuState {
+  const { t } = useTranslation();
   const {
     composerDraft,
     setComposerDraft,
@@ -175,10 +177,14 @@ export function useSlashMenu(params: UseSlashMenuParams): SlashMenuState {
   const modelSlashEmptyState =
     activeSlashOptionCommand?.kind === "model" && slashOptions.length === 0
       ? (() => {
-          const state = deriveModelOnboardingState(selectedModelRuntime, {
-            provider: undefined,
-            modelId: undefined,
-          });
+          const state = deriveModelOnboardingState(
+            selectedModelRuntime,
+            {
+              provider: undefined,
+              modelId: undefined,
+            },
+            t,
+          );
           return {
             title: state.emptyModelTitle,
             description: state.emptyModelDescription,

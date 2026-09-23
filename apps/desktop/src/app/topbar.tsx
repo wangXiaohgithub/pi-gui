@@ -8,6 +8,7 @@ import type {
 import { DiffIcon, FileIcon, PromptRailIcon, TerminalIcon } from "../ui/icons";
 import { getDesktopShortcutLabel, type PiDesktopApi } from "../../contracts/ipc";
 import type { WorkspaceMenuState } from "../features/threads/hooks/use-workspace-menu";
+import { useTranslation } from "react-i18next";
 
 interface TopbarProps {
   readonly activeView: AppView;
@@ -33,6 +34,7 @@ interface TopbarProps {
 }
 
 export function Topbar(props: TopbarProps) {
+  const { t } = useTranslation();
   const {
     activeView,
     rootWorkspace,
@@ -77,7 +79,7 @@ export function Topbar(props: TopbarProps) {
     <header className="topbar" data-testid="topbar" onDoubleClick={handleDoubleClick}>
       <div className="topbar__title">
         <span className="topbar__workspace">
-          {rootWorkspace ? rootWorkspace.name : "Open a folder to begin"}
+          {rootWorkspace ? rootWorkspace.name : t("shell.openFolderToBegin")}
         </span>
         {selectedWorkspace && activeView === "threads" ? (
           <>
@@ -92,7 +94,7 @@ export function Topbar(props: TopbarProps) {
               >
                 {selectedWorkspace.kind === "worktree"
                   ? (selectedWorktree?.name ?? selectedWorkspace.name)
-                  : "Local"}
+                  : t("sidebar.local")}
               </button>
               {wsMenu.environmentMenuOpen && rootWorkspace ? (
                 <div className="workspace-menu environment-picker__menu">
@@ -101,7 +103,7 @@ export function Topbar(props: TopbarProps) {
                     type="button"
                     onClick={() => wsMenu.selectWorkspace(rootWorkspace.id)}
                   >
-                    Local
+                    {t("sidebar.local")}
                   </button>
                   {activeWorktrees.map((worktree) => {
                     const linkedWorkspace = workspaces.find(
@@ -141,7 +143,7 @@ export function Topbar(props: TopbarProps) {
         ) : activeView === "new-thread" && rootWorkspace ? (
           <>
             <span className="topbar__separator">/</span>
-            <span className="topbar__session">New thread</span>
+            <span className="topbar__session">{t("navigation.newThread")}</span>
           </>
         ) : null}
       </div>
@@ -151,7 +153,7 @@ export function Topbar(props: TopbarProps) {
           active={terminalVisible}
           disabled={!terminalAvailable}
           icon={<TerminalIcon />}
-          label="Toggle terminal"
+          label={t("workbench.toggleTerminal")}
           shortcut={terminalShortcut}
           onClick={onToggleTerminal}
         />
@@ -159,7 +161,7 @@ export function Topbar(props: TopbarProps) {
           active={changesVisible}
           disabled={!panelAvailable}
           icon={<DiffIcon />}
-          label="Toggle changes"
+          label={t("workbench.toggleChanges")}
           shortcut={diffShortcut}
           onClick={onToggleChanges}
         />
@@ -167,13 +169,17 @@ export function Topbar(props: TopbarProps) {
           active={filesVisible}
           disabled={!panelAvailable}
           icon={<FileIcon />}
-          label="Toggle files"
+          label={t("workbench.toggleFiles")}
           onClick={onToggleFiles}
         />
         <TopbarActionButton
           active={promptRailVisible}
           icon={<PromptRailIcon />}
-          label={promptRailVisible ? "Hide prompt navigation" : "Show prompt navigation"}
+          label={
+            promptRailVisible
+              ? t("workbench.hidePromptNavigation")
+              : t("workbench.showPromptNavigation")
+          }
           onClick={onTogglePromptRail}
         />
       </div>

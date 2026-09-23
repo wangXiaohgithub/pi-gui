@@ -8,6 +8,7 @@ import {
 } from "../../ui/icons";
 import { ancestorDirectoryPaths } from "./file-workbench-state";
 import { buildFileTree, filterWorkspaceFiles, type FileTreeNode } from "./file-tree";
+import { useTranslation } from "react-i18next";
 
 interface FileExplorerProps {
   readonly files: readonly string[] | null;
@@ -26,6 +27,7 @@ export function FileExplorer({
   onSelect,
   onRefresh,
 }: FileExplorerProps) {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState("");
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const filterActive = filter.trim().length > 0;
@@ -55,27 +57,31 @@ export function FileExplorer({
   const emptyCopy = error
     ? error
     : files === null
-      ? "Loading files..."
+      ? t("workbench.filesLoading")
       : files.length === 0
-        ? "No indexed files"
+        ? t("workbench.noIndexedFiles")
         : visibleFiles.length === 0
-          ? "No matching files"
+          ? t("workbench.noMatchingFiles")
           : null;
 
   return (
-    <section className="file-explorer" data-testid="file-explorer" aria-label="File explorer">
+    <section
+      className="file-explorer"
+      data-testid="file-explorer"
+      aria-label={t("workbench.fileExplorer")}
+    >
       <div className="file-explorer__toolbar">
         <input
-          aria-label="Filter files"
+          aria-label={t("workbench.filterFiles")}
           className="file-explorer__filter"
           data-testid="file-workbench-filter"
           onChange={(event) => setFilter(event.target.value)}
-          placeholder="Filter files…"
+          placeholder={t("workbench.filterFiles")}
           type="search"
           value={filter}
         />
         <button
-          aria-label="Refresh"
+          aria-label={t("common.refresh")}
           className="icon-button"
           disabled={loading}
           onClick={onRefresh}

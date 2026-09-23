@@ -25,6 +25,7 @@ import type {
   CreateScheduledTaskInput,
   UpdateScheduledTaskInput,
 } from "./desktop-state";
+import type { AppLanguage } from "./locale";
 
 export type DesktopNotificationPermissionStatus =
   "granted" | "denied" | "default" | "unsupported" | "unknown";
@@ -150,6 +151,7 @@ export const desktopIpc = {
   getResolvedTheme: "pi-gui:get-resolved-theme",
   setThemeMode: "pi-gui:set-theme-mode",
   setThemePresetId: "pi-gui:set-theme-preset-id",
+  setLanguage: "pi-gui:set-language",
   themeChanged: "pi-gui:theme-changed",
   ping: "app:ping",
   openExternal: "app:open-external",
@@ -429,6 +431,7 @@ export interface PiDesktopApi {
   setIntegratedTerminalShell(shell: string): Promise<DesktopAppState>;
   setEnableTransparency(enabled: boolean): Promise<DesktopAppState>;
   setThemePresetId(presetId: ThemePresetId): Promise<DesktopAppState>;
+  setLanguage(language: AppLanguage): Promise<DesktopAppState>;
   ensureTerminalPanel(
     workspaceId: string,
     terminalScopeId: string,

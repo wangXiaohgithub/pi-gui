@@ -27,7 +27,11 @@ test("packaged app opens a real integrated terminal", async () => {
     const terminal = window.getByTestId("integrated-terminal");
     await expect(terminal).toBeVisible();
     await terminal.locator(".xterm").click();
-    await window.keyboard.type("printf 'PI_PACKAGED_TERMINAL_OK\\n'");
+    const command =
+      process.platform === "win32"
+        ? "Write-Output PI_PACKAGED_TERMINAL_OK"
+        : "printf 'PI_PACKAGED_TERMINAL_OK\\n'";
+    await window.keyboard.type(command);
     await window.keyboard.press("Enter");
     await expect(terminal.locator(".xterm-rows")).toContainText("PI_PACKAGED_TERMINAL_OK", {
       timeout: 15_000,

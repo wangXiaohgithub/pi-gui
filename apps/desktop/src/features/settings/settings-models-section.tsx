@@ -11,6 +11,7 @@ import {
   SettingsRow,
   THINKING_LEVELS,
 } from "./settings-utils";
+import { useTranslation } from "react-i18next";
 
 interface SettingsModelsSectionProps {
   readonly runtime?: RuntimeSnapshot;
@@ -27,6 +28,7 @@ export function SettingsModelsSection({
   onSetThinkingLevel,
   onSetScopedModelPatterns,
 }: SettingsModelsSectionProps) {
+  const { t } = useTranslation();
   const [modelQuery, setModelQuery] = useState("");
   const [scopedQuery, setScopedQuery] = useState("");
 
@@ -72,7 +74,10 @@ export function SettingsModelsSection({
   return (
     <>
       <SettingsGroup>
-        <SettingsRow title="Default model" description="Choose the default model for new sessions.">
+        <SettingsRow
+          title={t("settings.models.default")}
+          description={t("settings.models.defaultDescription")}
+        >
           <select
             className="settings-select"
             value={
@@ -88,7 +93,7 @@ export function SettingsModelsSection({
               }
             }}
           >
-            <option value="">Choose a model</option>
+            <option value="">{t("settings.models.choose")}</option>
             {enabledAvailableModels.map((model) => (
               <option
                 key={`${model.providerId}:${model.modelId}`}
@@ -100,8 +105,8 @@ export function SettingsModelsSection({
           </select>
         </SettingsRow>
         <SettingsRow
-          title="Reasoning"
-          description="Set the default reasoning level for new sessions."
+          title={t("settings.models.reasoning")}
+          description={t("settings.models.reasoningDescription")}
         >
           <div className="settings-pill-row">
             {THINKING_LEVELS.map((level) => (
@@ -119,8 +124,8 @@ export function SettingsModelsSection({
       </SettingsGroup>
 
       <SettingsGroup
-        title="Enabled models"
-        description="Choose which models appear in pickers throughout the app."
+        title={t("settings.models.enabled")}
+        description={t("settings.models.enabledDescription")}
       >
         <div className="settings-row">
           {enabledAvailablePatterns.length > 0 ? (
@@ -134,14 +139,14 @@ export function SettingsModelsSection({
           ) : (
             <span className="settings-hint">
               {availableModels.length === 0
-                ? "No connected models available yet."
-                : "No available models are currently enabled."}
+                ? t("settings.models.noConnected")
+                : t("settings.models.noAvailable")}
             </span>
           )}
         </div>
         {allImplicitlyEnabled && availableModels.length > 0 ? (
           <div className="settings-row">
-            <span className="settings-hint">All available models enabled by default.</span>
+            <span className="settings-hint">{t("settings.models.allEnabled")}</span>
           </div>
         ) : null}
         {!defaultIsEnabled && defaultProvider && defaultModelId ? (
@@ -154,14 +159,14 @@ export function SettingsModelsSection({
         ) : null}
         <details className="settings-disclosure">
           <summary className="settings-disclosure__summary">
-            <span>Edit enabled models</span>
+            <span>{t("settings.models.editEnabled")}</span>
             <span>{filteredScopedModels.length}</span>
           </summary>
           <div className="settings-disclosure__body">
             <input
-              aria-label="Search enabled models"
+              aria-label={t("settings.models.searchEnabled")}
               className="settings-search"
-              placeholder="Search enabled models"
+              placeholder={t("settings.models.searchEnabled")}
               value={scopedQuery}
               onChange={(event) => setScopedQuery(event.target.value)}
             />
@@ -175,7 +180,7 @@ export function SettingsModelsSection({
                     <input
                       checked={enabled}
                       disabled={isLast}
-                      title={isLast ? "At least one model must be enabled" : undefined}
+                      title={isLast ? t("settings.models.minimumOne") : undefined}
                       type="checkbox"
                       onChange={(event) => togglePattern(pattern, event.target.checked)}
                     />
@@ -192,19 +197,19 @@ export function SettingsModelsSection({
       </SettingsGroup>
 
       <SettingsGroup
-        title="All models"
-        description="Browse the full model catalog. Enable models above to use them."
+        title={t("settings.models.all")}
+        description={t("settings.models.allDescription")}
       >
         <details className="settings-disclosure">
           <summary className="settings-disclosure__summary">
-            <span>Browse full model inventory</span>
+            <span>{t("settings.models.browseAll")}</span>
             <span>{filteredModels.length}</span>
           </summary>
           <div className="settings-disclosure__body">
             <input
-              aria-label="Search models"
+              aria-label={t("settings.models.search")}
               className="settings-search"
-              placeholder="Search models"
+              placeholder={t("settings.models.search")}
               value={modelQuery}
               onChange={(event) => setModelQuery(event.target.value)}
             />
@@ -229,11 +234,11 @@ export function SettingsModelsSection({
                         <input
                           checked={enabled}
                           disabled={isLast}
-                          title={isLast ? "At least one model must be enabled" : undefined}
+                          title={isLast ? t("settings.models.minimumOne") : undefined}
                           type="checkbox"
                           onChange={(event) => togglePattern(pattern, event.target.checked)}
                         />
-                        <span className="sr-only">Enable</span>
+                        <span className="sr-only">{t("common.enable")}</span>
                       </label>
                     ) : null}
                   </div>

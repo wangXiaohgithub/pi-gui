@@ -33,6 +33,8 @@ import {
   type UpdateScheduledTaskInput,
 } from "../../contracts/scheduled-tasks";
 import { assertComposerAttachmentsAccepted } from "../../contracts/composer-attachments";
+import type { AppLanguage } from "../../contracts/locale";
+import { isAppLanguage } from "../../contracts/locale";
 
 export function expectString(value: unknown, name: string): string {
   if (typeof value !== "string") {
@@ -131,6 +133,13 @@ export function expectThemeMode(value: unknown, name = "mode"): ThemeMode {
 export function expectThemePresetId(value: unknown, name = "presetId"): ThemePresetId {
   if (!isThemePresetId(value)) {
     throw new TypeError(`${name} must be a supported theme preset`);
+  }
+  return value;
+}
+
+export function expectAppLanguage(value: unknown, name = "language"): AppLanguage {
+  if (!isAppLanguage(value)) {
+    throw new TypeError(`${name} must be en or zh-CN`);
   }
   return value;
 }

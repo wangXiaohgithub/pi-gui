@@ -20,7 +20,7 @@ test("pnpm discovery catches a new workspace without a typecheck command", () =>
     const result = checkWorkspaceTypechecks(root, process.env.npm_execpath);
     assert.equal(result.count, 1);
     assert.match(
-      result.failures.join("\n"),
+      result.failures.join("\n").replaceAll("\\", "/"),
       /modules\/new-workspace\/package.json: missing scripts.typecheck/,
     );
   }

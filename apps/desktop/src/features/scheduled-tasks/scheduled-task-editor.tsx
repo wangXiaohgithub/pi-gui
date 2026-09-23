@@ -5,6 +5,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
+import { useTranslation } from "react-i18next";
 import type {
   CreateScheduledTaskInput,
   ScheduledTaskRecord,
@@ -16,7 +17,6 @@ import {
   hostTimeZone,
   MIN_SCHEDULE_INTERVAL_MS,
   MAX_SCHEDULE_INTERVAL_MS,
-  WEEKDAY_NAMES,
   type Weekday,
 } from "../../../contracts/scheduled-tasks";
 import { trapDialogFocus } from "../../ui/dialog-focus";
@@ -84,6 +84,7 @@ export function ScheduledTaskEditor({
   onSubmit,
   onOpenChat,
 }: ScheduledTaskEditorProps) {
+  const { t } = useTranslation();
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const source = editor.mode === "edit" ? task : undefined;
   const prefill = editor.mode === "create" ? editor.prefill : undefined;
@@ -225,35 +226,40 @@ export function ScheduledTaskEditor({
       >
         <header className="scheduled-editor__header">
           <h2 id="scheduled-editor-title">
-            {editor.mode === "edit" ? "Edit scheduled task" : "Set up scheduled task"}
+            {t(editor.mode === "edit" ? "scheduled.editTitle" : "scheduled.setupTitle")}
           </h2>
-          <button className="icon-button" type="button" aria-label="Close" onClick={onClose}>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label={t("scheduled.close")}
+            onClick={onClose}
+          >
             ×
           </button>
         </header>
 
         <label className="scheduled-editor__field">
-          <span>Title</span>
+          <span>{t("scheduled.titleField")}</span>
           <input
             data-testid="scheduled-task-title"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="Weekly status"
+            placeholder={t("scheduled.titlePlaceholder")}
           />
         </label>
         <label className="scheduled-editor__field">
-          <span>Instructions</span>
+          <span>{t("scheduled.instructions")}</span>
           <textarea
             data-testid="scheduled-task-instruction"
             value={instruction}
             onChange={(event) => setInstruction(event.target.value)}
-            placeholder="What should pi do when this runs?"
+            placeholder={t("scheduled.instructionsPlaceholder")}
             rows={5}
           />
         </label>
 
         <label className="scheduled-editor__field">
-          <span>Workspace</span>
+          <span>{t("scheduled.workspace")}</span>
           <select
             data-testid="scheduled-task-workspace"
             value={workspaceId}
@@ -271,7 +277,7 @@ export function ScheduledTaskEditor({
         </label>
 
         <fieldset className="scheduled-editor__field">
-          <legend>Runs in</legend>
+          <legend>{t("scheduled.runsIn")}</legend>
           <label className="scheduled-editor__choice">
             <input
               type="radio"
@@ -279,7 +285,7 @@ export function ScheduledTaskEditor({
               checked={targetKind === "new-thread"}
               onChange={() => setTargetKind("new-thread")}
             />
-            New thread for this task
+            {t("scheduled.newThread")}
           </label>
           <label className="scheduled-editor__choice">
             <input
@@ -288,7 +294,7 @@ export function ScheduledTaskEditor({
               checked={targetKind === "existing-thread"}
               onChange={() => setTargetKind("existing-thread")}
             />
-            Existing thread
+            {t("scheduled.existingThread")}
           </label>
           {targetKind === "existing-thread" ? (
             <select
@@ -296,7 +302,7 @@ export function ScheduledTaskEditor({
               value={sessionId}
               onChange={(event) => setSessionId(event.target.value)}
             >
-              <option value="">Select a thread</option>
+              <option value="">{t("scheduled.selectThread")}</option>
               {sessions.map((session) => (
                 <option key={session.id} value={session.id}>
                   {session.title}
@@ -307,22 +313,22 @@ export function ScheduledTaskEditor({
         </fieldset>
 
         <label className="scheduled-editor__field">
-          <span>Frequency</span>
+          <span>{t("scheduled.frequency")}</span>
           <select
             data-testid="scheduled-task-frequency"
             value={frequency}
             onChange={(event) => setFrequency(event.target.value as FrequencyKind)}
           >
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="interval">Interval</option>
-            <option value="once">Once</option>
+            <option value="daily">{t("scheduled.frequencyDaily")}</option>
+            <option value="weekly">{t("scheduled.frequencyWeekly")}</option>
+            <option value="interval">{t("scheduled.frequencyInterval")}</option>
+            <option value="once">{t("scheduled.frequencyOnce")}</option>
           </select>
         </label>
 
         {frequency === "once" ? (
           <label className="scheduled-editor__field">
-            <span>Run at</span>
+            <span>{t("scheduled.runAt")}</span>
             <input
               data-testid="scheduled-task-once-at"
               type="datetime-local"
@@ -333,7 +339,7 @@ export function ScheduledTaskEditor({
         ) : null}
         {frequency === "daily" || frequency === "weekly" ? (
           <label className="scheduled-editor__field">
-            <span>Time</span>
+            <span>{t("scheduled.time")}</span>
             <input
               data-testid="scheduled-task-time"
               type="time"
@@ -344,35 +350,37 @@ export function ScheduledTaskEditor({
         ) : null}
         {frequency === "weekly" ? (
           <fieldset className="scheduled-editor__field">
-            <legend>Days</legend>
+            <legend>{t("scheduled.days")}</legend>
             <div className="scheduled-editor__days">
-              {WEEKDAY_NAMES.map((name, index) => {
-                const day = index as Weekday;
-                const selected = days.includes(day);
-                return (
-                  <button
-                    className={`scheduled-editor__day${selected ? " scheduled-editor__day--active" : ""}`}
-                    key={name}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() =>
-                      setDays((current) =>
-                        current.includes(day)
-                          ? current.filter((entry) => entry !== day)
-                          : [...current, day].sort((left, right) => left - right),
-                      )
-                    }
-                  >
-                    {name.slice(0, 3)}
-                  </button>
-                );
-              })}
+              {(t("scheduled.weekdayShort", { returnObjects: true }) as string[]).map(
+                (name, index) => {
+                  const day = index as Weekday;
+                  const selected = days.includes(day);
+                  return (
+                    <button
+                      className={`scheduled-editor__day${selected ? " scheduled-editor__day--active" : ""}`}
+                      key={name}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() =>
+                        setDays((current) =>
+                          current.includes(day)
+                            ? current.filter((entry) => entry !== day)
+                            : [...current, day].sort((left, right) => left - right),
+                        )
+                      }
+                    >
+                      {name}
+                    </button>
+                  );
+                },
+              )}
             </div>
           </fieldset>
         ) : null}
         {frequency === "interval" ? (
           <label className="scheduled-editor__field">
-            <span>Every (minutes)</span>
+            <span>{t("scheduled.intervalMinutes")}</span>
             <input
               data-testid="scheduled-task-interval"
               type="number"
@@ -393,11 +401,11 @@ export function ScheduledTaskEditor({
               type="button"
               onClick={() => onOpenChat(openChatTarget)}
             >
-              Open chat
+              {t("scheduled.openChat")}
             </button>
           ) : null}
           <button className="button button--secondary" type="button" onClick={onClose}>
-            Cancel
+            {t("scheduled.cancel")}
           </button>
           <button
             className="button button--primary"
@@ -418,7 +426,7 @@ export function ScheduledTaskEditor({
               });
             }}
           >
-            {editor.mode === "edit" ? "Save" : "Create"}
+            {t(editor.mode === "edit" ? "scheduled.save" : "scheduled.create")}
           </button>
         </div>
       </div>

@@ -38,6 +38,8 @@ import { NotificationManager } from "./platform/notification-manager";
 import { NotificationPermissionService } from "./platform/notification-permission";
 import { checkForUpdate, initUpdateChecker, openReleasesPage } from "./platform/update-checker";
 import { ThemeManager } from "./platform/theme-manager";
+import { resolveAppLanguage } from "../contracts/locale";
+import { nativeText } from "../contracts/native-copy";
 import { TerminalService } from "./platform/terminal-service";
 import type { DesktopAppState, DesktopAppViewState } from "../contracts/desktop-state";
 import {
@@ -505,11 +507,11 @@ async function pickWorkspacePathViaDialog(
   const result = window
     ? await dialog.showOpenDialog(window, {
         properties: ["openDirectory"],
-        title: "Open workspace folder",
+        title: nativeText(store.snapshot().language, "openWorkspaceFolder"),
       })
     : await dialog.showOpenDialog({
         properties: ["openDirectory"],
-        title: "Open workspace folder",
+        title: nativeText(store.snapshot().language, "openWorkspaceFolder"),
       });
   if (result.canceled || result.filePaths.length === 0) {
     return undefined;
@@ -545,6 +547,7 @@ async function pickWorkspaceViaDialog(
 }
 
 async function runManualUpdateCheck(): Promise<void> {
+  const language = store.snapshot().language;
   const window = mainWindow && canPublishToWindow(mainWindow) ? mainWindow : undefined;
   const showDialog = (options: MessageBoxOptions) =>
     window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options);
@@ -558,9 +561,13 @@ async function runManualUpdateCheck(): Promise<void> {
       const choice = await showDialog({
         type: "info",
         title: "pi-gui",
-        message: `Version ${result.latestVersion} is available.`,
-        detail: `You have ${result.currentVersion}.`,
-        buttons: ["Download", "Later"],
+        message: nativeText(language, "updateAvailable", {
+          latestVersion: result.latestVersion,
+        }),
+        detail: nativeText(language, "updateCurrent", {
+          currentVersion: result.currentVersion,
+        }),
+        buttons: [nativeText(language, "download"), nativeText(language, "later")],
         defaultId: 0,
         cancelId: 1,
       });
@@ -574,8 +581,10 @@ async function runManualUpdateCheck(): Promise<void> {
       await showDialog({
         type: "info",
         title: "pi-gui",
-        message: `You're up to date on version ${result.currentVersion}.`,
-        buttons: ["OK"],
+        message: nativeText(language, "updateUpToDate", {
+          currentVersion: result.currentVersion,
+        }),
+        buttons: [nativeText(language, "ok")],
       });
       return;
     }
@@ -583,18 +592,18 @@ async function runManualUpdateCheck(): Promise<void> {
     await showDialog({
       type: "warning",
       title: "pi-gui",
-      message: "Could not check for updates right now.",
+      message: nativeText(language, "updateFailed"),
       detail: result.message,
-      buttons: ["OK"],
+      buttons: [nativeText(language, "ok")],
     });
   } catch (error) {
     console.error("pi-gui: manual update check failed:", error);
     await showDialog({
       type: "warning",
       title: "pi-gui",
-      message: "Could not check for updates right now.",
+      message: nativeText(language, "updateFailed"),
       detail: error instanceof Error ? error.message : String(error),
-      buttons: ["OK"],
+      buttons: [nativeText(language, "ok")],
     }).catch(() => undefined);
   }
 }
@@ -604,6 +613,7 @@ function installApplicationMenu(): void {
     return;
   }
 
+  const language = store.snapshot().language;
   const template: MenuItemConstructorOptions[] = [
     {
       label: app.name,
@@ -612,7 +622,7 @@ function installApplicationMenu(): void {
         { type: "separator" },
         {
           id: CHECK_FOR_UPDATES_MENU_ITEM_ID,
-          label: "Check for Updates…",
+          label: nativeText(language, "checkForUpdates"),
           click: () => {
             void runManualUpdateCheck().catch((error: unknown) => {
               console.error("[main] runManualUpdateCheck failed", error);
@@ -630,11 +640,11 @@ function installApplicationMenu(): void {
       ],
     },
     {
-      label: "File",
+      label: nativeText(language, "file"),
       submenu: [
         {
           id: NEW_WINDOW_MENU_ITEM_ID,
-          label: "New Window",
+          label: nativeText(language, "newWindow"),
           accelerator: "CommandOrControl+N",
           click: () => {
             createAppWindow(windowOwner.foregroundView());
@@ -643,7 +653,7 @@ function installApplicationMenu(): void {
         { type: "separator" },
         {
           id: OPEN_FOLDER_MENU_ITEM_ID,
-          label: "Open Folder…",
+          label: nativeText(language, "openFolder"),
           accelerator: "Command+O",
           click: () => {
             void pickWorkspaceViaDialog(mainWindow).catch((error: unknown) => {
@@ -748,6 +758,7 @@ app
     store = new DesktopAppStore({
       userDataDir: configuredUserDataDir,
       initialWorkspacePaths: resolveInitialWorkspacePaths(),
+      initialLanguage: resolveAppLanguage(process.env.PI_APP_TEST_LOCALE ?? app.getLocale()),
       getWindow: () => mainWindow,
       shouldKeepSessionDialogs: (sessionRef) =>
         windowOwner?.isSessionVisibleInAnotherWindow(sessionRef) ?? false,
@@ -765,8 +776,14 @@ app
     await store.initialize();
     themeManager.setMode(store.snapshot().themeMode);
     integratedTerminalShell = (await store.getState()).integratedTerminalShell;
+    let applicationMenuLanguage = store.snapshot().language;
+    installApplicationMenu();
     stopPruningTerminals = store.subscribe((state) => {
       integratedTerminalShell = state.integratedTerminalShell;
+      if (state.language !== applicationMenuLanguage) {
+        applicationMenuLanguage = state.language;
+        installApplicationMenu();
+      }
       const workspacePaths = state.workspaces.map((workspace) => workspace.path);
       const workspacePathSignature = workspacePaths.join("\0");
       if (workspacePathSignature !== retainedTerminalWorkspacePathSignature) {
@@ -774,7 +791,6 @@ app
         terminalService?.retainWorkspacePaths(workspacePaths);
       }
     });
-    installApplicationMenu();
     if (process.env.PI_APP_TEST_MODE) {
       Object.assign(globalThis, {
         __PI_APP_TEST_HOOKS: {
@@ -839,7 +855,7 @@ app
     );
     stopNotifications = notificationManager.start();
     if (!isDev) {
-      stopUpdateChecker = initUpdateChecker();
+      stopUpdateChecker = initUpdateChecker(() => store.snapshot().language);
     }
 
     registerDesktopIpc({
@@ -893,11 +909,11 @@ app
           const result = parent
             ? await dialog.showOpenDialog(parent, {
                 properties: ["openFile", "multiSelections"],
-                title: "Attach files",
+                title: nativeText(store.snapshot().language, "attachFiles"),
               })
             : await dialog.showOpenDialog({
                 properties: ["openFile", "multiSelections"],
-                title: "Attach files",
+                title: nativeText(store.snapshot().language, "attachFiles"),
               });
           if (result.canceled || result.filePaths.length === 0) {
             return undefined;

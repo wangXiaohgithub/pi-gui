@@ -168,7 +168,7 @@ test("a new workspace cannot silently receive only syntax lint", async () => {
     }),
   );
   assert.match(
-    (await workspaceLintFailures(fixture)).join("\n"),
+    (await workspaceLintFailures(fixture)).join("\n").replaceAll("\\", "/"),
     /packages\/new-feature: add a typed project/,
   );
   // A concrete typed project registration restores the intended path.

@@ -1,6 +1,7 @@
 import type { ThemeMode, ThemePresetId } from "../../../contracts/desktop-state";
 import { SettingsGroup, SettingsRow } from "./settings-utils";
 import { themePresets } from "./theme-presets";
+import { useTranslation } from "react-i18next";
 
 interface SettingsAppearanceSectionProps {
   readonly themeMode: ThemeMode;
@@ -11,12 +12,6 @@ interface SettingsAppearanceSectionProps {
   readonly onSetEnableTransparency: (enabled: boolean) => void;
 }
 
-const THEME_OPTIONS: { mode: ThemeMode; label: string; description: string }[] = [
-  { mode: "system", label: "System", description: "Follow your OS appearance setting" },
-  { mode: "light", label: "Light", description: "Always use the light theme" },
-  { mode: "dark", label: "Dark", description: "Always use the dark theme" },
-];
-
 export function SettingsAppearanceSection({
   themeMode,
   themePresetId,
@@ -25,9 +20,27 @@ export function SettingsAppearanceSection({
   enableTransparency,
   onSetEnableTransparency,
 }: SettingsAppearanceSectionProps) {
+  const { t } = useTranslation();
+  const themeOptions: { mode: ThemeMode; label: string; description: string }[] = [
+    {
+      mode: "system",
+      label: t("settings.appearance.system"),
+      description: t("settings.appearance.systemDescription"),
+    },
+    {
+      mode: "light",
+      label: t("settings.appearance.light"),
+      description: t("settings.appearance.lightDescription"),
+    },
+    {
+      mode: "dark",
+      label: t("settings.appearance.dark"),
+      description: t("settings.appearance.darkDescription"),
+    },
+  ];
   return (
     <>
-      <SettingsGroup title="Theme preset">
+      <SettingsGroup title={t("settings.appearance.themePreset")}>
         <div className="theme-preset-grid">
           {themePresets.map((preset) => (
             <label
@@ -58,8 +71,8 @@ export function SettingsAppearanceSection({
         </div>
       </SettingsGroup>
 
-      <SettingsGroup title="Theme">
-        {THEME_OPTIONS.map((option) => (
+      <SettingsGroup title={t("settings.appearance.theme")}>
+        {themeOptions.map((option) => (
           <SettingsRow key={option.mode} title={option.label} description={option.description}>
             <input
               checked={themeMode === option.mode}
@@ -71,13 +84,13 @@ export function SettingsAppearanceSection({
         ))}
       </SettingsGroup>
 
-      <SettingsGroup title="Visuals">
+      <SettingsGroup title={t("settings.appearance.visuals")}>
         <SettingsRow
-          title="Window transparency"
-          description="Let desktop colors show through supported surfaces."
+          title={t("settings.appearance.transparency")}
+          description={t("settings.appearance.transparencyDescription")}
         >
           <input
-            aria-label="Window transparency"
+            aria-label={t("settings.appearance.transparency")}
             type="checkbox"
             checked={enableTransparency}
             onChange={(event) => onSetEnableTransparency(event.currentTarget.checked)}

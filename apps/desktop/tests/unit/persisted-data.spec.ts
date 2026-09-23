@@ -32,7 +32,7 @@ for (const invalid of [
   });
 }
 
-test("reads v15 ui-state without lastInteractedAt and writes v17", async () => {
+test("reads v15 ui-state without lastInteractedAt and writes v18", async () => {
   const path = join(await mkdtemp(join(tmpdir(), "ui-state-recency-")), "ui-state.json");
   await writeFile(path, JSON.stringify({ version: 15, composerDraft: "kept" }));
   const decoded = await readPersistedUiState(path);
@@ -46,11 +46,11 @@ test("reads v15 ui-state without lastInteractedAt and writes v17", async () => {
     version: number;
     lastInteractedAtBySession: Record<string, string>;
   };
-  expect(written.version).toBe(17);
+  expect(written.version).toBe(18);
   expect(written.lastInteractedAtBySession).toEqual({ "ws:sess": "2026-09-21T12:00:00.000Z" });
 });
 
-test("reads v16 ui-state without threadGrouping and writes the saved choice as v17", async () => {
+test("reads v16 ui-state without threadGrouping and writes the saved choice as v18", async () => {
   const path = join(await mkdtemp(join(tmpdir(), "ui-state-grouping-")), "ui-state.json");
   await writeFile(path, JSON.stringify({ version: 16, composerDraft: "kept" }));
   const decoded = await readPersistedUiState(path);
@@ -64,8 +64,14 @@ test("reads v16 ui-state without threadGrouping and writes the saved choice as v
     version: number;
     threadGrouping: string;
   };
-  expect(written.version).toBe(17);
+  expect(written.version).toBe(18);
   expect(written.threadGrouping).toBe("workspace");
+});
+
+test("persists the selected interface language", async () => {
+  const path = join(await mkdtemp(join(tmpdir(), "ui-state-language-")), "ui-state.json");
+  await writePersistedUiState(path, { language: "zh-CN" });
+  expect((await readPersistedUiState(path)).language).toBe("zh-CN");
 });
 
 test("backup recovery retains damaged bytes and the good backup", async () => {

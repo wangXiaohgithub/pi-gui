@@ -10,6 +10,7 @@ export type SessionStatus = "idle" | "running" | "failed";
 export type { SessionRole, TimelineToolCall, TranscriptMessage } from "./timeline-types";
 import type { TranscriptMessage } from "./timeline-types";
 import type { ScheduledTaskRecord } from "./scheduled-tasks";
+import type { AppLanguage } from "./locale";
 export type {
   CreateScheduledTaskInput,
   ScheduledTaskFilter,
@@ -348,6 +349,7 @@ export interface DesktopAppState {
   readonly globalModelSettings: ModelSettingsSnapshot;
   readonly themeMode: ThemeMode;
   readonly themePresetId: ThemePresetId;
+  readonly language: AppLanguage;
   readonly sidebarCollapsed: boolean;
   readonly threadGrouping: ThreadGrouping;
   readonly enableTransparency: boolean;
@@ -366,7 +368,7 @@ export interface WorkspaceSessionTarget {
   readonly sessionId: string;
 }
 
-export function createEmptyDesktopAppState(): DesktopAppState {
+export function createEmptyDesktopAppState(language: AppLanguage = "en"): DesktopAppState {
   return {
     workspaces: [],
     worktreesByWorkspace: {},
@@ -401,6 +403,7 @@ export function createEmptyDesktopAppState(): DesktopAppState {
     },
     themeMode: "system",
     themePresetId: "default",
+    language,
     sidebarCollapsed: false,
     threadGrouping: "time",
     enableTransparency: false,

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import type { WorkspaceRecord, WorktreeRecord } from "../../../contracts/desktop-state";
 import type { PiDesktopApi, WorkspaceFilePreview } from "../../../contracts/ipc";
 import ReactMarkdown from "react-markdown";
@@ -56,6 +58,7 @@ export function FileEditorPane({
   onActivate,
   onClose,
 }: FileEditorPaneProps) {
+  const { t } = useTranslation();
   const activePath = tabs.active;
   const [preview, setPreview] = useState<WorkspaceFilePreview | null>(null);
   const [viewerError, setViewerError] = useState<string | null>(null);
@@ -107,7 +110,7 @@ export function FileEditorPane({
   const showSource = !markdown || sourceMode;
 
   return (
-    <section className="file-editor" data-testid="file-editor" aria-label="Open file">
+    <section className="file-editor" data-testid="file-editor" aria-label={t("workbench.openFile")}>
       <div className="file-editor__tab-strip">
         {worktreeLabel ? (
           <span className="file-editor__worktree-chip" data-testid="file-editor-worktree-chip">
@@ -133,7 +136,7 @@ export function FileEditorPane({
                   {fileNameFromPath(path)}
                 </button>
                 <button
-                  aria-label={`Close ${fileNameFromPath(path)}`}
+                  aria-label={t("workbench.closeFile", { file: fileNameFromPath(path) })}
                   className="file-editor__tab-close"
                   type="button"
                   onClick={() => onClose(path)}
@@ -157,11 +160,11 @@ export function FileEditorPane({
                 type="button"
                 onClick={() => setSourceMode((current) => !current)}
               >
-                View source
+                {t("workbench.viewSource")}
               </button>
             ) : null}
             <button
-              aria-label="Copy file"
+              aria-label={t("workbench.copyFile")}
               className="icon-button"
               disabled={!preview || preview.binary || Boolean(viewerError)}
               type="button"
@@ -185,14 +188,14 @@ export function FileEditorPane({
                 });
               }}
             >
-              Open
+              {t("workbench.open")}
             </button>
           </div>
         ) : null}
       </div>
       {activePath ? (
         <nav
-          aria-label="File path"
+          aria-label={t("workbench.filePath")}
           className="file-editor__breadcrumb"
           data-testid="file-editor-breadcrumb"
         >
@@ -214,6 +217,7 @@ export function FileEditorPane({
           showSource,
           viewerError,
           viewerLoading,
+          t,
         })}
       </div>
     </section>
@@ -227,6 +231,7 @@ function renderEditorBody({
   showSource,
   viewerError,
   viewerLoading,
+  t,
 }: {
   readonly activePath: string | null;
   readonly markdown: boolean;
@@ -234,21 +239,22 @@ function renderEditorBody({
   readonly showSource: boolean;
   readonly viewerError: string | null;
   readonly viewerLoading: boolean;
+  readonly t: TFunction;
 }): ReactNode {
   if (!activePath) {
-    return <div className="diff-panel__empty">Select a file from the explorer.</div>;
+    return <div className="diff-panel__empty">{t("workbench.selectExplorerFile")}</div>;
   }
   if (viewerLoading) {
-    return <div className="diff-panel__empty">Loading file...</div>;
+    return <div className="diff-panel__empty">{t("workbench.loadingFile")}</div>;
   }
   if (viewerError) {
     return <div className="diff-panel__empty">{viewerError}</div>;
   }
   if (!preview) {
-    return <div className="diff-panel__empty">No preview available.</div>;
+    return <div className="diff-panel__empty">{t("workbench.noPreview")}</div>;
   }
   if (preview.binary) {
-    return <div className="diff-panel__empty">Binary or directory preview is not available.</div>;
+    return <div className="diff-panel__empty">{t("workbench.binaryPreviewUnavailable")}</div>;
   }
   return (
     <>
@@ -259,7 +265,7 @@ function renderEditorBody({
       )}
       {preview.truncated ? (
         <div className="file-editor__truncated" role="status">
-          Preview truncated
+          {t("workbench.previewTruncated")}
         </div>
       ) : null}
     </>

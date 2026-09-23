@@ -7,6 +7,8 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import type { ComposerAttachment } from "../../../contracts/desktop-state";
 import type { MentionOption } from "./hooks/use-mention-menu";
 import type {
@@ -119,6 +121,7 @@ export function ComposerSurface({
   onToggleExtensionDock,
   footer,
 }: ComposerSurfaceProps) {
+  const { t } = useTranslation();
   const [isDragActive, setIsDragActive] = useState(false);
   const dragDepthRef = useRef(0);
 
@@ -226,7 +229,7 @@ export function ComposerSurface({
               )}
               <span className="composer-attachment__name">{attachment.name}</span>
               <button
-                aria-label={`Remove ${attachment.name}`}
+                aria-label={`${t("composer.removeAttachment")} ${attachment.name}`}
                 className="composer-attachment__remove"
                 type="button"
                 onClick={() => onRemoveAttachment(attachment.id)}
@@ -284,7 +287,13 @@ export function ComposerSurface({
                         <span className="slash-menu__section-icon" aria-hidden="true">
                           {section.id === "runtime" ? <SparkIcon /> : <SettingsIcon />}
                         </span>
-                        <span>{section.title}</span>
+                        <span>
+                          {t(
+                            section.id === "runtime"
+                              ? "slash.runtimeCommands"
+                              : "slash.hostActions",
+                          )}
+                        </span>
                       </div>
                     ) : null}
                     {section.items.map((command) => (
@@ -300,7 +309,9 @@ export function ComposerSurface({
                         {command.section === "runtime" ? (
                           <span className="slash-menu__content slash-menu__content--skill">
                             <span className="slash-menu__line">
-                              <span className="slash-menu__title">{command.title}</span>
+                              <span className="slash-menu__title">
+                                {localizedSlashTitle(command, t)}
+                              </span>
                               {command.sourceLabel ? (
                                 <span className="slash-menu__skill-badge">
                                   {command.sourceLabel}
@@ -308,11 +319,13 @@ export function ComposerSurface({
                               ) : null}
                               {command.compatibility?.status === "terminal-only" ? (
                                 <span className="slash-menu__skill-badge slash-menu__skill-badge--warning">
-                                  Terminal-only
+                                  {t("slash.terminalOnly")}
                                 </span>
                               ) : null}
                             </span>
-                            <span className="slash-menu__description">{command.description}</span>
+                            <span className="slash-menu__description">
+                              {localizedSlashDescription(command, t)}
+                            </span>
                             <span className="slash-menu__meta">
                               <span className="slash-menu__command slash-menu__command--skill">
                                 {command.command}
@@ -322,10 +335,14 @@ export function ComposerSurface({
                         ) : (
                           <span className="slash-menu__content">
                             <span className="slash-menu__line">
-                              <span className="slash-menu__title">{command.title}</span>
+                              <span className="slash-menu__title">
+                                {localizedSlashTitle(command, t)}
+                              </span>
                               <span className="slash-menu__command">{command.command}</span>
                             </span>
-                            <span className="slash-menu__description">{command.description}</span>
+                            <span className="slash-menu__description">
+                              {localizedSlashDescription(command, t)}
+                            </span>
                           </span>
                         )}
                       </button>
@@ -340,7 +357,9 @@ export function ComposerSurface({
                 data-testid="slash-options-menu"
                 onWheel={(event) => event.stopPropagation()}
               >
-                <div className="slash-menu__search">{selectedSlashCommand.title}</div>
+                <div className="slash-menu__search">
+                  {localizedSlashTitle(selectedSlashCommand, t)}
+                </div>
                 {slashOptions.length > 0 ? (
                   slashOptions.map((option) => (
                     <button
@@ -349,8 +368,12 @@ export function ComposerSurface({
                       type="button"
                       onClick={() => onSelectSlashOption(option)}
                     >
-                      <span className="slash-menu__option-title">{option.label}</span>
-                      <span className="slash-menu__option-description">{option.description}</span>
+                      <span className="slash-menu__option-title">
+                        {localizedSlashOption(option, selectedSlashCommand, t).label}
+                      </span>
+                      <span className="slash-menu__option-description">
+                        {localizedSlashOption(option, selectedSlashCommand, t).description}
+                      </span>
                     </button>
                   ))
                 ) : slashOptionEmptyState ? (
@@ -394,6 +417,7 @@ function MentionMenuSections({
   readonly onSelect: (option: MentionOption) => void;
   readonly onEnableExtension: (option: ExtensionMentionOption) => void;
 }) {
+  const { t } = useTranslation();
   const extensionOptions = options.filter(
     (option): option is ExtensionMentionOption => option.kind === "extension",
   );
@@ -405,7 +429,7 @@ function MentionMenuSections({
     <>
       {extensionOptions.length > 0 ? (
         <MentionMenuSection
-          title="Extensions"
+          title={t("composer.extensions")}
           options={extensionOptions}
           selectedIndex={selectedIndex}
           allOptions={options}
@@ -415,7 +439,7 @@ function MentionMenuSections({
       ) : null}
       {fileOptions.length > 0 ? (
         <MentionMenuSection
-          title="Files"
+          title={t("composer.files")}
           options={fileOptions}
           selectedIndex={selectedIndex}
           allOptions={options}
@@ -425,6 +449,63 @@ function MentionMenuSections({
       ) : null}
     </>
   );
+}
+
+const SLASH_KEY_BY_KIND: Partial<Record<ComposerSlashCommand["kind"], string>> = {
+  compact: "compact",
+  login: "login",
+  logout: "logout",
+  model: "model",
+  name: "name",
+  reload: "reload",
+  "scoped-models": "scopedModels",
+  session: "session",
+  settings: "settings",
+  status: "status",
+  thinking: "thinking",
+  tree: "tree",
+};
+
+function localizedSlashTitle(command: ComposerSlashCommand, t: TFunction): string {
+  const key = SLASH_KEY_BY_KIND[command.kind];
+  return key ? t(`slash.${key}.title`) : command.title;
+}
+
+function localizedSlashDescription(command: ComposerSlashCommand, t: TFunction): string {
+  const key = SLASH_KEY_BY_KIND[command.kind];
+  return key ? t(`slash.${key}.description`) : command.description;
+}
+
+function localizedSlashOption(
+  option: ComposerSlashOption,
+  command: ComposerSlashCommand,
+  t: TFunction,
+): { readonly label: string; readonly description: string } {
+  if (
+    command.kind === "thinking" &&
+    ["low", "medium", "high", "xhigh", "max"].includes(option.value)
+  ) {
+    return {
+      label: t(`slash.thinkingLevels.${option.value}.label`),
+      description: t(`slash.thinkingLevels.${option.value}.description`),
+    };
+  }
+  if (command.kind === "login" || command.kind === "logout") {
+    const keyByDescription: Readonly<Record<string, string>> = {
+      "OAuth connected": "oauthConnected",
+      "Saved API key": "savedApiKey",
+      "Configured via environment": "configuredEnvironment",
+      "Configured externally": "configuredExternally",
+      "OAuth available": "oauthAvailable",
+      "Needs API key": "needsApiKey",
+      Available: "available",
+    };
+    const key = keyByDescription[option.description];
+    if (key) {
+      return { label: option.label, description: t(`slash.provider.${key}`) };
+    }
+  }
+  return option;
 }
 
 function MentionMenuSection({

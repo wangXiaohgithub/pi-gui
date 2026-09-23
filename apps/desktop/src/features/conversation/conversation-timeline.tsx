@@ -14,6 +14,7 @@ import type { TimelineViewport } from "./hooks/use-timeline-viewport";
 import { ThreadSearchBar } from "./thread-search";
 import { TimelineItem } from "./timeline-item";
 import { SparkIcon } from "../../ui/icons";
+import { useTranslation } from "react-i18next";
 
 interface ThreadSearchModel {
   readonly isOpen: boolean;
@@ -49,6 +50,7 @@ export function ConversationTimeline({
   promptRailVisible = true,
   scheduledOrigins,
 }: ConversationTimelineProps) {
+  const { t } = useTranslation();
   const [expandedToolCallIds, setExpandedToolCallIds] = useState<Set<string>>(() => new Set());
   const toggleToolCall = useCallback(
     (id: string) =>
@@ -156,7 +158,7 @@ export function ConversationTimeline({
               type="button"
               onClick={viewport.jumpToLatest}
             >
-              New activity below
+              {t("thread.newActivityBelow")}
             </button>
           ) : null}
         </div>
@@ -181,13 +183,14 @@ function TimelineContextRail({
   readonly prompts: readonly UserPromptEntry[];
   readonly onSelect: (messageId: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <nav
       className="timeline-context-rail"
       data-testid="timeline-context-rail"
-      aria-label="Prompts in this thread"
+      aria-label={t("thread.promptsLabel")}
     >
-      <div className="timeline-context-rail__title">Prompts</div>
+      <div className="timeline-context-rail__title">{t("thread.prompts")}</div>
       <ol className="timeline-context-rail__list">
         {prompts.map((prompt) => (
           <li key={prompt.id}>
@@ -218,6 +221,7 @@ function buildPromptPreview(text: string): string {
 }
 
 function TranscriptSkeleton() {
+  const { t } = useTranslation();
   return (
     <div className="transcript-skeleton" data-testid="transcript-skeleton" aria-hidden="true">
       <div className="transcript-skeleton__row transcript-skeleton__row--user">
@@ -235,7 +239,7 @@ function TranscriptSkeleton() {
         <span className="skeleton-line" style={{ width: "80%" }} />
         <span className="skeleton-line" style={{ width: "72%" }} />
       </div>
-      <span className="sr-only">Loading transcript…</span>
+      <span className="sr-only">{t("thread.loadingTranscript")}</span>
     </div>
   );
 }
@@ -247,10 +251,11 @@ function TranscriptHydrateError({
   readonly retrying: boolean;
   readonly onRetry?: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="transcript-hydrate-error" data-testid="transcript-hydrate-error">
-      <h2>Couldn't load this thread</h2>
-      <p>The selected conversation couldn't be restored. Retry to try again.</p>
+      <h2>{t("thread.loadFailedTitle")}</h2>
+      <p>{t("thread.loadFailedBody")}</p>
       <div className="transcript-hydrate-error__actions">
         <button
           className="button button--primary"
@@ -259,7 +264,7 @@ function TranscriptHydrateError({
           disabled={retrying || !onRetry}
           onClick={onRetry}
         >
-          {retrying ? "Retrying…" : "Retry"}
+          {retrying ? t("thread.retrying") : t("common.retry")}
         </button>
       </div>
     </div>
@@ -267,13 +272,14 @@ function TranscriptHydrateError({
 }
 
 function TranscriptEmptyState() {
+  const { t } = useTranslation();
   return (
     <div className="transcript-empty" data-testid="transcript-empty">
       <span className="transcript-empty__glyph" aria-hidden="true">
         <SparkIcon />
       </span>
-      <p className="transcript-empty__title">Start the conversation</p>
-      <p className="transcript-empty__hint">Send a prompt below to begin this session.</p>
+      <p className="transcript-empty__title">{t("thread.startTitle")}</p>
+      <p className="transcript-empty__hint">{t("thread.startHint")}</p>
     </div>
   );
 }

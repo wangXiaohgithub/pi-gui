@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
   type SetStateAction,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
   type AppView,
   type ComposerAttachment,
@@ -48,6 +49,7 @@ interface UseNewThreadControllerParams {
 }
 
 export function useNewThreadController(params: UseNewThreadControllerParams) {
+  const { t } = useTranslation();
   const {
     api,
     snapshot,
@@ -85,10 +87,14 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
   const resolvedModelId =
     modelId ?? (defaultEnabled ? runtime?.settings.defaultModelId : undefined);
   const resolvedThinkingLevel = thinkingLevel ?? runtime?.settings.defaultThinkingLevel;
-  const modelOnboarding = deriveModelOnboardingState(runtime, {
-    provider: resolvedProvider,
-    modelId: resolvedModelId,
-  });
+  const modelOnboarding = deriveModelOnboardingState(
+    runtime,
+    {
+      provider: resolvedProvider,
+      modelId: resolvedModelId,
+    },
+    t,
+  );
 
   const focusComposer = useCallback(() => {
     window.requestAnimationFrame(() => {

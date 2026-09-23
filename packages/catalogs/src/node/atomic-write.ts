@@ -6,6 +6,7 @@ import { dirname } from "node:path";
 export const TMP_SUFFIX = ".tmp";
 
 let tmpCounter = 0;
+const pendingWrites = new Map<string, Promise<void>>();
 
 /**
  * Write `data` to `filePath` durably. A concurrent reader or a crash at any
@@ -20,6 +21,21 @@ let tmpCounter = 0;
  *   loss, not just the temp file's data blocks.
  */
 export async function writeFileAtomic(filePath: string, data: string | Uint8Array): Promise<void> {
+  const previous = pendingWrites.get(filePath);
+  const write = async (): Promise<void> => writeFileAtomicUnqueued(filePath, data);
+  const current = previous ? previous.then(write, write) : write();
+  pendingWrites.set(filePath, current);
+
+  try {
+    await current;
+  } finally {
+    if (pendingWrites.get(filePath) === current) {
+      pendingWrites.delete(filePath);
+    }
+  }
+}
+
+async function writeFileAtomicUnqueued(filePath: string, data: string | Uint8Array): Promise<void> {
   const dir = dirname(filePath);
   await mkdir(dir, { recursive: true });
 

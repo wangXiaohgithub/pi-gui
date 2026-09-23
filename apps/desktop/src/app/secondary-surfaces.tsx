@@ -11,14 +11,7 @@ import { SkillsView } from "../features/extensions/skills-view";
 import { ExtensionsView } from "../features/extensions/extensions-view";
 import { SettingsView, type SettingsSection } from "../features/settings/settings-view";
 import { SecondarySurface } from "./secondary-surface";
-
-const settingsNav = [
-  { id: "appearance", label: "Appearance" },
-  { id: "general", label: "General" },
-  { id: "providers", label: "Providers" },
-  { id: "models", label: "Models" },
-  { id: "notifications", label: "Notifications" },
-] as const;
+import { useTranslation } from "react-i18next";
 
 interface SecondarySurfacesProps {
   readonly api: NonNullable<typeof window.piApp>;
@@ -55,6 +48,14 @@ export function SecondarySurfaces({
   onBack,
   onTrySkill,
 }: SecondarySurfacesProps) {
+  const { t } = useTranslation();
+  const settingsNav = [
+    { id: "appearance", label: t("settings.appearance.title") },
+    { id: "general", label: t("settings.general.title") },
+    { id: "providers", label: t("settings.providers.title") },
+    { id: "models", label: t("settings.models.title") },
+    { id: "notifications", label: t("settings.notifications.title") },
+  ] as const;
   const [notificationPermissionStatus, setNotificationPermissionStatus] =
     useState<DesktopNotificationPermissionStatus>("unknown");
   const [notificationPermissionPending, setNotificationPermissionPending] = useState(false);
@@ -192,7 +193,7 @@ export function SecondarySurfaces({
     apiKey: string,
   ): Promise<string | undefined> => {
     if (!settingsWorkspace) {
-      return "Select a workspace first.";
+      return t("errors.selectWorkspace");
     }
     const state = await updateSnapshot(setSnapshot, () =>
       api.setProviderApiKey(settingsWorkspace.id, providerId, apiKey),
@@ -202,7 +203,7 @@ export function SecondarySurfaces({
 
   const handleRemoveProviderApiKey = async (providerId: string): Promise<string | undefined> => {
     if (!settingsWorkspace) {
-      return "Select a workspace first.";
+      return t("errors.selectWorkspace");
     }
     const state = await updateSnapshot(setSnapshot, () =>
       api.logoutProvider(settingsWorkspace.id, providerId),
@@ -214,7 +215,7 @@ export function SecondarySurfaces({
     config: CustomProviderConfig,
   ): Promise<string | undefined> => {
     if (!settingsWorkspace) {
-      return "Select a workspace first.";
+      return t("errors.selectWorkspace");
     }
     const state = await updateSnapshot(setSnapshot, () =>
       api.setCustomProvider(settingsWorkspace.id, config),
@@ -224,7 +225,7 @@ export function SecondarySurfaces({
 
   const handleDeleteCustomProvider = async (providerId: string): Promise<string | undefined> => {
     if (!settingsWorkspace) {
-      return "Select a workspace first.";
+      return t("errors.selectWorkspace");
     }
     const state = await updateSnapshot(setSnapshot, () =>
       api.deleteCustomProvider(settingsWorkspace.id, providerId),
@@ -286,6 +287,12 @@ export function SecondarySurfaces({
     );
   };
 
+  const handleSetLanguage = (language: DesktopAppState["language"]) => {
+    void updateSnapshot(setSnapshot, () => api.setLanguage(language)).catch((error: unknown) => {
+      console.error("[renderer] setLanguage failed", error);
+    });
+  };
+
   const handleSetNotificationPreferences = (
     preferences: Partial<DesktopAppState["notificationPreferences"]>,
   ) => {
@@ -339,10 +346,10 @@ export function SecondarySurfaces({
 
   if (activeView === "skills") {
     return (
-      <SecondarySurface onBack={onBack} testId="skills-surface" title="Skills">
+      <SecondarySurface onBack={onBack} testId="skills-surface" title={t("skills.title")}>
         <div className="surface-toolbar">
           <label className="surface-toolbar__field">
-            <span>Workspace</span>
+            <span>{t("skills.workspace")}</span>
             <select
               value={skillsWorkspace?.id ?? ""}
               onChange={(event) => onSelectSkillsWorkspace(event.target.value)}
@@ -384,10 +391,10 @@ export function SecondarySurfaces({
 
   if (activeView === "extensions") {
     return (
-      <SecondarySurface onBack={onBack} testId="extensions-surface" title="Extensions">
+      <SecondarySurface onBack={onBack} testId="extensions-surface" title={t("extensions.title")}>
         <div className="surface-toolbar">
           <label className="surface-toolbar__field">
-            <span>Workspace</span>
+            <span>{t("extensions.workspace")}</span>
             <select
               value={extensionsWorkspace?.id ?? ""}
               onChange={(event) => onSelectExtensionsWorkspace(event.target.value)}
@@ -428,13 +435,13 @@ export function SecondarySurfaces({
       onBack={onBack}
       onSelectNav={(section) => onSelectSettingsSection(section as SettingsSection)}
       testId="settings-surface"
-      title="Settings"
+      title={t("navigation.settings")}
     >
       {settingsSection === "providers" ||
       (settingsSection === "models" && snapshot.modelSettingsScopeMode === "per-repo") ? (
         <div className="surface-toolbar">
           <label className="surface-toolbar__field">
-            <span>Workspace</span>
+            <span>{t("navigation.workspace")}</span>
             <select
               value={settingsWorkspace?.id ?? ""}
               onChange={(event) => onSelectSettingsWorkspace(event.target.value)}
@@ -459,6 +466,7 @@ export function SecondarySurfaces({
         integratedTerminalShell={snapshot.integratedTerminalShell}
         themeMode={snapshot.themeMode}
         themePresetId={snapshot.themePresetId}
+        language={snapshot.language}
         enableTransparency={snapshot.enableTransparency}
         onLoginProvider={handleLoginProvider}
         onLogoutProvider={handleLogoutProvider}
@@ -475,6 +483,7 @@ export function SecondarySurfaces({
         onSetScopedModelPatterns={handleSetScopedModelPatterns}
         onSetThemeMode={handleSetThemeMode}
         onSetThemePresetId={handleSetThemePresetId}
+        onSetLanguage={handleSetLanguage}
         onSetThinkingLevel={handleSetThinkingLevel}
         onToggleSkillCommands={handleToggleSkillCommands}
         onSetEnableTransparency={(enabled) => {

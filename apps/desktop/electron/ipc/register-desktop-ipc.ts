@@ -24,6 +24,7 @@ import type { WindowOwner } from "../windows/window-owner";
 import { assertComposerAttachmentPixels } from "./composer-attachment-pixels";
 import {
   expectAppView,
+  expectAppLanguage,
   expectBoolean,
   expectComposerAttachments,
   expectCreateSessionInput,
@@ -65,6 +66,7 @@ type StateOwner = Pick<
   | "setThreadGrouping"
   | "setThemeMode"
   | "setThemePresetId"
+  | "setLanguage"
 >;
 
 type WorkspaceOwner = Pick<
@@ -251,6 +253,9 @@ export function registerDesktopIpc({
     const presetId = expectThemePresetId(rawPresetId);
     return run(event, () => owners.state.setThemePresetId(presetId));
   });
+  ipcMain.handle(desktopIpc.setLanguage, (event, rawLanguage: unknown) =>
+    run(event, () => owners.state.setLanguage(expectAppLanguage(rawLanguage))),
+  );
   ipcMain.handle(desktopIpc.openExternal, (event, rawUrl: unknown) => {
     windows.windowForSender(event.sender);
     return capabilities.openExternal(expectString(rawUrl, "url"));

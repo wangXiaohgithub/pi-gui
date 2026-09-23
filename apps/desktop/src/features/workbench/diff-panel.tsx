@@ -10,6 +10,8 @@ import { InlineDiff } from "../../ui/diff-inline";
 import { RefreshIcon } from "../../ui/icons";
 import { extensionToLanguage } from "../../ui/syntax-highlight";
 import { loadReviewed, pruneReviewed, saveReviewed } from "./reviewed-files-store";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 interface WorkbenchChangedFile extends ChangedFileEntry {
   readonly workspaceId: string;
@@ -39,6 +41,7 @@ export function DiffPanel({
   fileRequest,
   contexts,
 }: DiffPanelProps) {
+  const { t } = useTranslation();
   const [filesByWorkspace, setFilesByWorkspace] = useState<
     Readonly<Record<string, readonly string[]>>
   >({});
@@ -99,6 +102,7 @@ export function DiffPanel({
     changedRows.length,
     unavailableChangedGroupCount,
     pendingChangedGroupCount,
+    t,
   );
   const changedRowsRef = useRef(changedRows);
   changedRowsRef.current = changedRows;
@@ -360,19 +364,19 @@ export function DiffPanel({
     <section className="side-panel diff-panel file-workbench file-workbench--changes">
       <div className="diff-panel__header file-workbench__header">
         <div className="file-workbench__heading">
-          <h2 className="diff-panel__title">Changes</h2>
-          <span className="file-workbench__subtitle">{buildSubtitle(activeContext)}</span>
+          <h2 className="diff-panel__title">{t("workbench.changes")}</h2>
+          <span className="file-workbench__subtitle">{buildSubtitle(activeContext, t)}</span>
         </div>
         {showReviewCounter ? (
           <span className="diff-panel__counter" data-testid="diff-panel-counter">
-            {`Reviewed ${reviewedCount} of ${changedRows.length}`}
+            {t("workbench.reviewedCount", { reviewed: reviewedCount, total: changedRows.length })}
           </span>
         ) : null}
         <button
           className="icon-button"
           type="button"
           onClick={() => refresh({ force: true })}
-          aria-label="Refresh"
+          aria-label={t("common.refresh")}
           disabled={loading}
         >
           <RefreshIcon />
@@ -380,7 +384,7 @@ export function DiffPanel({
       </div>
 
       {showContextStrip ? (
-        <div className="file-workbench__context-strip" aria-label="File scopes">
+        <div className="file-workbench__context-strip" aria-label={t("workbench.fileScopes")}>
           {contexts.map((context) => {
             const isActive = activeContext?.workspace.id === context.workspace.id;
             const changedResult = changedByWorkspace[context.workspace.id];
@@ -393,12 +397,12 @@ export function DiffPanel({
                 type="button"
                 onClick={() => setActiveWorkspaceId(context.workspace.id)}
               >
-                <span>{contextLabel(context)}</span>
+                <span>{contextLabel(context, t)}</span>
                 <strong>
                   {changedResult === undefined
-                    ? "Loading"
+                    ? t("common.loading")
                     : changedResult.state === "unavailable"
-                      ? "Unavailable"
+                      ? t("common.unavailable")
                       : changeCount}
                 </strong>
               </button>
@@ -410,15 +414,17 @@ export function DiffPanel({
       <div className="file-workbench__body">
         <section
           className="file-workbench__section file-workbench__section--changes"
-          aria-label="Changed files"
+          aria-label={t("workbench.changedFiles")}
         >
           <div className="file-workbench__section-header">
-            <span>Changed files</span>
+            <span>{t("workbench.changedFiles")}</span>
             <span>{changedFilesSummary}</span>
           </div>
           {changedRows.length === 0 && unavailableChangedGroupCount === 0 ? (
             <div className="diff-panel__empty">
-              {pendingChangedGroupCount > 0 ? "Loading changes..." : "No changes"}
+              {pendingChangedGroupCount > 0
+                ? t("workbench.loadingChanges")
+                : t("workbench.noChanges")}
             </div>
           ) : (
             <div className="diff-panel__file-list" ref={fileListRef}>
@@ -427,8 +433,8 @@ export function DiffPanel({
                   <div className="file-workbench__change-group" key={group.context.workspace.id}>
                     {showContextStrip ? (
                       <div className="file-workbench__change-heading">
-                        <span>{contextLabel(group.context)}</span>
-                        <span>{group.error ? "Unavailable" : group.files.length}</span>
+                        <span>{contextLabel(group.context, t)}</span>
+                        <span>{group.error ? t("common.unavailable") : group.files.length}</span>
                       </div>
                     ) : null}
                     {group.error ? (
@@ -497,7 +503,7 @@ export function DiffPanel({
                               onClick={() => handleStage(file)}
                               disabled={file.staged}
                             >
-                              {file.staged ? "Staged" : "Stage"}
+                              {file.staged ? t("workbench.staged") : t("workbench.stage")}
                             </button>
                           </div>
                         );
@@ -514,10 +520,14 @@ export function DiffPanel({
       <div className="diff-panel__viewer file-workbench__viewer">
         <div className="diff-panel__viewer-header file-workbench__viewer-header">
           <span className="file-workbench__viewer-path">
-            {selectedFile ? formatPathForDisplay(selectedFile.path) : "Select a file"}
+            {selectedFile ? formatPathForDisplay(selectedFile.path) : t("workbench.selectFile")}
           </span>
           {selectedFile ? (
-            <span className="file-workbench__viewer-modes" role="group" aria-label="Viewer mode">
+            <span
+              className="file-workbench__viewer-modes"
+              role="group"
+              aria-label={t("workbench.viewerMode")}
+            >
               <button
                 className={
                   viewerMode === "preview"
@@ -527,7 +537,7 @@ export function DiffPanel({
                 type="button"
                 onClick={() => setViewerMode("preview")}
               >
-                File
+                {t("workbench.file")}
               </button>
               <button
                 className={
@@ -538,7 +548,7 @@ export function DiffPanel({
                 type="button"
                 onClick={() => setViewerMode("diff")}
               >
-                Diff
+                {t("workbench.diff")}
               </button>
             </span>
           ) : null}
@@ -550,6 +560,7 @@ export function DiffPanel({
           viewerError,
           preview,
           diffText,
+          t,
         })}
       </div>
     </section>
@@ -563,6 +574,7 @@ function renderViewer({
   viewerError,
   preview,
   diffText,
+  t,
 }: {
   readonly selectedFile: FileSelection | null;
   readonly viewerMode: "preview" | "diff";
@@ -570,12 +582,15 @@ function renderViewer({
   readonly viewerError: string | null;
   readonly preview: WorkspaceFilePreview | null;
   readonly diffText: string;
+  readonly t: TFunction;
 }) {
   if (!selectedFile) {
-    return <div className="diff-panel__empty">Select a file from the changed files.</div>;
+    return <div className="diff-panel__empty">{t("workbench.selectChangedFile")}</div>;
   }
   if (viewerLoading) {
-    return <div className="diff-panel__empty">Loading {viewerMode}...</div>;
+    return (
+      <div className="diff-panel__empty">{t("workbench.loadingViewer", { mode: viewerMode })}</div>
+    );
   }
   if (viewerError) {
     return <div className="diff-panel__empty">{viewerError}</div>;
@@ -584,19 +599,19 @@ function renderViewer({
     return diffText ? (
       <InlineDiff diff={diffText} language={extensionToLanguage(selectedFile.path)} />
     ) : (
-      <div className="diff-panel__empty">No diff available for this file.</div>
+      <div className="diff-panel__empty">{t("workbench.noDiff")}</div>
     );
   }
   if (!preview) {
-    return <div className="diff-panel__empty">No preview available.</div>;
+    return <div className="diff-panel__empty">{t("workbench.noPreview")}</div>;
   }
   if (preview.binary) {
-    return <div className="diff-panel__empty">Binary or directory preview is not available.</div>;
+    return <div className="diff-panel__empty">{t("workbench.binaryPreviewUnavailable")}</div>;
   }
   return (
     <pre className="file-workbench__preview" data-testid="file-workbench-preview">
       {preview.content}
-      {preview.truncated ? "\n\n[Preview truncated]" : ""}
+      {preview.truncated ? `\n\n[${t("workbench.previewTruncated")}]` : ""}
     </pre>
   );
 }
@@ -632,9 +647,9 @@ function formatPathForDisplay(path: string): string {
   return JSON.stringify(path);
 }
 
-function contextLabel(context: FileWorkbenchContext): string {
+function contextLabel(context: FileWorkbenchContext, t: TFunction): string {
   if (context.role === "thread") {
-    return "Current thread";
+    return t("workbench.currentThread");
   }
   if (context.role === "worktree") {
     return context.worktree?.branchName ?? context.workspace.branchName ?? context.workspace.name;
@@ -642,9 +657,9 @@ function contextLabel(context: FileWorkbenchContext): string {
   return context.workspace.name;
 }
 
-function buildSubtitle(context: FileWorkbenchContext | undefined): string {
+function buildSubtitle(context: FileWorkbenchContext | undefined, t: TFunction): string {
   if (!context) {
-    return "No workspace selected";
+    return t("workbench.noWorkspace");
   }
   if (context.role === "worktree") {
     return `Worktree ${context.worktree?.branchName ?? context.workspace.name}`;
@@ -661,11 +676,12 @@ function buildChangedFilesSummary(
   changedCount: number,
   unavailableCount: number,
   pendingCount: number,
+  t: TFunction,
 ): string {
   const parts = [
     changedCount > 0 ? String(changedCount) : "",
-    unavailableCount > 0 ? `${unavailableCount} unavailable` : "",
-    pendingCount > 0 ? `${pendingCount} loading` : "",
+    unavailableCount > 0 ? t("workbench.unavailableCount", { count: unavailableCount }) : "",
+    pendingCount > 0 ? t("workbench.loadingCount", { count: pendingCount }) : "",
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(" · ") : "0";
 }

@@ -19,6 +19,7 @@ import {
   TerminalIcon,
 } from "../../ui/icons";
 import { extensionToLanguage } from "../../ui/syntax-highlight";
+import { useTranslation } from "react-i18next";
 
 export function TimelineItem({
   item,
@@ -78,6 +79,7 @@ function TimelineMessage({
   readonly onForkFromMessage?: (messageIndex: number, preview?: string) => void;
   readonly scheduledOrigin?: ScheduledTaskOrigin;
 }) {
+  const { t } = useTranslation();
   if (item.role === "user") {
     return (
       <article className="timeline-item timeline-item--user">
@@ -124,7 +126,9 @@ function TimelineMessage({
     return (
       <article className="timeline-item timeline-item--summary-card">
         <div className="timeline-item__summary-eyebrow">
-          {item.role === "branchSummary" ? "Branch summary" : "Compaction summary"}
+          {item.role === "branchSummary"
+            ? t("thread.branchSummary")
+            : t("thread.compactionSummary")}
         </div>
         <MessageMarkdown text={item.text} />
       </article>
@@ -140,13 +144,13 @@ function TimelineMessage({
           <button
             type="button"
             className="timeline-item__action"
-            title="Fork conversation from this point"
-            aria-label="Fork conversation from this point"
+            title={t("thread.fork")}
+            aria-label={t("thread.fork")}
             data-testid="fork-from-message"
             onClick={() => onForkFromMessage(sourceMessageIndex, item.text)}
           >
             <ForkIcon />
-            <span className="timeline-item__action-label">Fork</span>
+            <span className="timeline-item__action-label">{t("thread.forkAction")}</span>
           </button>
         </div>
       ) : null}
@@ -175,6 +179,7 @@ function TimelineToolCallItem({
   readonly onToggle?: (callId: string) => void;
   readonly onViewFileInDiff?: (path: string) => void;
 }) {
+  const { t } = useTranslation();
   const hasContent = item.input !== undefined || item.output !== undefined;
   const diffText = isWriteTool(item.toolName) ? extractDiffFromOutput(item.output) : undefined;
   const diffStats = diffText ? countDiffStats(diffText) : undefined;
@@ -259,7 +264,7 @@ function TimelineToolCallItem({
                   className="icon-button timeline-tool__copy"
                   type="button"
                   onClick={handleCopy}
-                  aria-label="Copy"
+                  aria-label={t("common.copy")}
                 >
                   <CopyIcon />
                 </button>
@@ -273,7 +278,7 @@ function TimelineToolCallItem({
                   className="icon-button timeline-tool__copy"
                   type="button"
                   onClick={handleCopy}
-                  aria-label="Copy"
+                  aria-label={t("common.copy")}
                 >
                   <CopyIcon />
                 </button>
