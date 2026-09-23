@@ -1,0 +1,67 @@
+name: 中文版 Windows Release
+
+on:
+  push:
+    tags:
+      - "v*-cn.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify tag and branch
+        shell: pwsh
+        run: |
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/zh-i18n
+          if ($LASTEXITCODE -ne 0) { throw "Release tag must point to zh-i18n history" }
+          ./scripts/version-check.ps1 -Version ($env:GITHUB_REF_NAME -replace '^v', '') -Tag $env:GITHUB_REF_NAME
+
+      - name: Check
+        run: pnpm check
+
+      - name: Package Windows
+        shell: pwsh
+        run: |
+          $env:PI_GUI_RELEASE_VERSION = $env:GITHUB_REF_NAME -replace '^v', ''
+          pnpm package:win
+          if ($LASTEXITCODE -ne 0) { throw "pnpm package:win failed with exit code $LASTEXITCODE" }
+
+      - name: Verify release artifacts
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          ./scripts/version-check.ps1 -Version $version -Tag $env:GITHUB_REF_NAME -RequireArtifacts
+          pnpm --dir apps/desktop run verify:packaged-runtime-deps:windows
+          if ($LASTEXITCODE -ne 0) { throw "Packaged runtime dependency check failed" }
+          ./apps/desktop/scripts/verify-windows-release.ps1 `
+            -ReleaseDir "$PWD/apps/desktop/release" `
+            -Version $version `
+            -PackagedApp "$PWD/apps/desktop/release/win-unpacked/pi-gui.exe" `
+            -SmokePackages
+
+      - name: Upload Windows release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            apps/desktop/release/*-setup.exe
+            apps/desktop/release/*-portable.exe
+          fail_on_unmatched_files: true
+          prerelease: true
+          generate_release_notes: true
