@@ -1,0 +1,60 @@
+name: 中文版首版 Release 恢复
+
+on:
+  push:
+    branches:
+      - zh-i18n
+    paths:
+      - .github/workflows/recover-cn1.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Check
+        run: pnpm check
+
+      - name: Package Windows
+        shell: pwsh
+        run: |
+          $env:PI_GUI_RELEASE_VERSION = "0.1.0-beta.39-cn.1"
+          pnpm package:win
+          if ($LASTEXITCODE -ne 0) { throw "pnpm package:win failed with exit code $LASTEXITCODE" }
+
+      - name: Verify release artifacts
+        shell: pwsh
+        run: |
+          ./scripts/version-check.ps1 -Version "0.1.0-beta.39-cn.1" -Tag "v0.1.0-beta.39-cn.1" -RequireArtifacts
+          pnpm --dir apps/desktop run verify:packaged-runtime-deps:windows
+          if ($LASTEXITCODE -ne 0) { throw "Packaged runtime dependency check failed" }
+          ./apps/desktop/scripts/verify-windows-release.ps1 `
+            -ReleaseDir "$PWD/apps/desktop/release" `
+            -Version "0.1.0-beta.39-cn.1" `
+            -PackagedApp "$PWD/apps/desktop/release/win-unpacked/pi-gui.exe" `
+            -SmokePackages
+
+      - name: Upload Windows release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v0.1.0-beta.39-cn.1
+          name: pi-gui 中文版 v0.1.0-beta.39-cn.1
+          files: |
+            apps/desktop/release/*-setup.exe
+            apps/desktop/release/*-portable.exe
+          fail_on_unmatched_files: true
+          prerelease: true
